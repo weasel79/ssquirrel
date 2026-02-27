@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scenes/main.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="Script" path="res://scenes/hud/hud.gd" id="3_hud_script"]
+[ext_resource type="Texture2D" path="res://art/tiles/grass_patch.png" id="4_grass"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_stats"]
 bg_color = Color(0, 0, 0, 0.8)
@@ -14,10 +15,12 @@ content_margin_bottom = 10.0
 [node name="Main" type="Node2D"]
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="TextureRect" parent="."]
 offset_right = 640.0
 offset_bottom = 360.0
-color = Color(0.15, 0.3, 0.12, 1)
+texture = ExtResource("4_grass")
+stretch_mode = 1
+texture_filter = 1
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
 position = Vector2(320, 180)

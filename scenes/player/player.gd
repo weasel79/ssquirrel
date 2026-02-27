@@ -2,6 +2,7 @@ extends CharacterBody2D
 # Player character — top-down movement with stacking weapon mods.
 # Each mod can be leveled 1→2→3 by collecting the same pickup again.
 # All active mods apply simultaneously when shooting.
+# Directional animated sprite (down/side/up) with idle, run, hit, death.
 
 signal died
 signal health_changed(new_health: int)
@@ -26,13 +27,33 @@ var mods := {
 
 var health: int = MAX_HEALTH
 var invincible := false
+var _is_dead := false
 
 # Orbit system state
 var orbit_bullets: Array[Node2D] = []
 var orbit_angle := 0.0
 
+# Animation state
+var _last_direction := "down"  # "down", "side", "up"
+
+# Preloaded sprite sheet textures — 4 animations × 3 directions = 12
+var _tex := {
+	"idle_down":  preload("res://art/sprites/player/Idle_Down.png"),
+	"idle_side":  preload("res://art/sprites/player/Idle_Side.png"),
+	"idle_up":    preload("res://art/sprites/player/Idle_Up.png"),
+	"run_down":   preload("res://art/sprites/player/Run_Down.png"),
+	"run_side":   preload("res://art/sprites/player/Run_Side.png"),
+	"run_up":     preload("res://art/sprites/player/Run_Up.png"),
+	"hit_down":   preload("res://art/sprites/player/Hit_Down.png"),
+	"hit_side":   preload("res://art/sprites/player/Hit_Side.png"),
+	"hit_up":     preload("res://art/sprites/player/Hit_Up.png"),
+	"death_down": preload("res://art/sprites/player/Death_Down.png"),
+	"death_side": preload("res://art/sprites/player/Death_Side.png"),
+	"death_up":   preload("res://art/sprites/player/Death_Up.png"),
+}
+
 @onready var shoot_timer: Timer = $ShootTimer
-@onready var sprite: Sprite2D = $Sprite2D
+@onready var anim_sprite: AnimatedSprite2D = $AnimSprite
 
 var projectile_scene: PackedScene = preload("res://scenes/projectile/projectile.tscn")
 var orbit_scene: PackedScene = preload("res://scenes/projectile/orbit_bullet.tscn")
@@ -41,9 +62,53 @@ var orbit_scene: PackedScene = preload("res://scenes/projectile/orbit_bullet.tsc
 func _ready() -> void:
 	shoot_timer.timeout.connect(_on_shoot_timer_timeout)
 	_recalculate_fire_rate()
+	_build_animations()
+	anim_sprite.play("idle_down")
+
+
+# Build 12 directional animations from sprite sheets at runtime
+func _build_animations() -> void:
+	var defs := {}
+	for dir_name in ["down", "side", "up"]:
+		# Idle: 4 frames, 64×64
+		defs["idle_" + dir_name] = {
+			"texture": _tex["idle_" + dir_name],
+			"frame_size": Vector2i(64, 64),
+			"frame_count": 4,
+			"fps": 6.0,
+			"loop": true,
+		}
+		# Run: 6 frames, 64×64
+		defs["run_" + dir_name] = {
+			"texture": _tex["run_" + dir_name],
+			"frame_size": Vector2i(64, 64),
+			"frame_count": 6,
+			"fps": 10.0,
+			"loop": true,
+		}
+		# Hit: 4 frames, 64×64
+		defs["hit_" + dir_name] = {
+			"texture": _tex["hit_" + dir_name],
+			"frame_size": Vector2i(64, 64),
+			"frame_count": 4,
+			"fps": 10.0,
+			"loop": false,
+		}
+		# Death: 8 frames, 64×64
+		defs["death_" + dir_name] = {
+			"texture": _tex["death_" + dir_name],
+			"frame_size": Vector2i(64, 64),
+			"frame_count": 8,
+			"fps": 10.0,
+			"loop": false,
+		}
+	anim_sprite.sprite_frames = SpriteHelper.build_sprite_frames(defs)
 
 
 func _physics_process(delta: float) -> void:
+	if _is_dead:
+		return
+
 	# 8-directional movement
 	var input_dir := Vector2(
 		Input.get_axis("move_left", "move_right"),
@@ -58,9 +123,30 @@ func _physics_process(delta: float) -> void:
 
 	# Flash while invincible
 	if invincible:
-		sprite.modulate.a = 0.4 if fmod(Time.get_ticks_msec() / 100.0, 2.0) < 1.0 else 1.0
+		anim_sprite.modulate.a = 0.4 if fmod(Time.get_ticks_msec() / 100.0, 2.0) < 1.0 else 1.0
 	else:
-		sprite.modulate.a = 1.0
+		anim_sprite.modulate.a = 1.0
+
+	# Update facing direction based on movement
+	if input_dir.length() > 0.1:
+		if absf(input_dir.x) > absf(input_dir.y):
+			_last_direction = "side"
+			anim_sprite.flip_h = input_dir.x < 0
+		elif input_dir.y < 0:
+			_last_direction = "up"
+		else:
+			_last_direction = "down"
+
+	# Play appropriate directional animation (skip if hit/death is playing)
+	var cur := anim_sprite.animation
+	if not cur.begins_with("hit_") and not cur.begins_with("death_"):
+		var desired: String
+		if input_dir.length() > 0.1:
+			desired = "run_" + _last_direction
+		else:
+			desired = "idle_" + _last_direction
+		if anim_sprite.animation != desired:
+			anim_sprite.play(desired)
 
 	# Rotate orbit bullets around player
 	if mods["orbit"] > 0:
@@ -89,6 +175,8 @@ func _find_nearest_enemy() -> Node2D:
 # ── Shooting (all mods stack) ────────────────────────────────────────────
 
 func _on_shoot_timer_timeout() -> void:
+	if _is_dead:
+		return
 	var target := _find_nearest_enemy()
 	if target == null:
 		return
@@ -212,13 +300,19 @@ func _recalculate_fire_rate() -> void:
 # ── Damage ───────────────────────────────────────────────────────────────
 
 func take_damage(amount: int = 1) -> void:
-	if invincible:
+	if invincible or _is_dead:
 		return
 	health -= amount
 	health_changed.emit(health)
 	if health <= 0:
+		_is_dead = true
+		shoot_timer.stop()
+		# Play death animation, stay visible for game over screen
+		anim_sprite.play("death_" + _last_direction)
 		died.emit()
 		return
+	# Play hit animation briefly, then resume normal
+	anim_sprite.play("hit_" + _last_direction)
 	invincible = true
 	await get_tree().create_timer(INVINCIBLE_DURATION).timeout
 	invincible = false

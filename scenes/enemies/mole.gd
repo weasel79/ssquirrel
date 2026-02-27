@@ -1,6 +1,6 @@
 extends CharacterBody2D
-# Fascist mole — slow, tanky, takes lots of hits.
-# 5 HP, slow movement, deals 2 damage on contact.
+# Orc warrior — slow, tanky, takes lots of hits.
+# 5 HP, slow movement, deals 2 damage on contact. Scale-punch on hit.
 
 signal killed(score_value: int)
 
@@ -13,37 +13,108 @@ const CONTACT_DAMAGE := 2
 var health: int = MAX_HEALTH
 var player: Node2D = null
 var can_deal_damage := true
+var _is_dying := false
 
-@onready var sprite: Sprite2D = $Sprite2D
+# Sprite sheet textures
+var _idle_tex: Texture2D = preload("res://art/sprites/orc_warrior/Idle.png")
+var _run_tex: Texture2D = preload("res://art/sprites/orc_warrior/Run.png")
+var _death_tex: Texture2D = preload("res://art/sprites/orc_warrior/Death.png")
+
+@onready var anim_sprite: AnimatedSprite2D = $AnimSprite
 
 
 func _ready() -> void:
 	add_to_group("enemies")
 	player = get_tree().get_first_node_in_group("player")
+	_build_animations()
+	anim_sprite.play("run")
+	anim_sprite.animation_finished.connect(_on_animation_finished)
+
+
+# Build SpriteFrames from horizontal strip sheets at runtime
+func _build_animations() -> void:
+	var sf := SpriteHelper.build_sprite_frames({
+		"idle": {
+			"texture": _idle_tex,
+			"frame_size": Vector2i(32, 32),
+			"frame_count": 4,
+			"fps": 5.0,
+			"loop": true,
+		},
+		"run": {
+			"texture": _run_tex,
+			"frame_size": Vector2i(64, 64),
+			"frame_count": 6,
+			"fps": 8.0,
+			"loop": true,
+		},
+		"death": {
+			"texture": _death_tex,
+			"frame_size": Vector2i(64, 64),
+			"frame_count": 6,
+			"fps": 10.0,
+			"loop": false,
+		},
+	})
+	anim_sprite.sprite_frames = sf
 
 
 func _physics_process(_delta: float) -> void:
+	if _is_dying:
+		return
 	if player == null or not is_instance_valid(player):
 		return
+
 	var dir := (player.global_position - global_position).normalized()
 	velocity = dir * SPEED
 	move_and_slide()
 
+	# Flip sprite based on horizontal movement direction
+	anim_sprite.flip_h = dir.x < 0
+
+	# Switch between idle and run animations
+	if velocity.length() > 5.0:
+		if anim_sprite.animation != "run":
+			anim_sprite.play("run")
+	else:
+		if anim_sprite.animation != "idle":
+			anim_sprite.play("idle")
+
 
 func take_damage(amount: int = 1) -> void:
+	if _is_dying:
+		return
 	health -= amount
 	Stats.record_damage_dealt(amount, "Mole")
-	sprite.modulate = Color.RED
+	anim_sprite.modulate = Color.RED
 	var tween := create_tween()
-	tween.tween_property(sprite, "modulate", Color.WHITE, 0.2)
-	tween.parallel().tween_property(sprite, "scale", Vector2(1.2, 1.2), 0.05)
-	tween.tween_property(sprite, "scale", Vector2(1.0, 1.0), 0.1)
+	tween.tween_property(anim_sprite, "modulate", Color.WHITE, 0.2)
+	# Scale-punch feedback for tanky enemy
+	tween.parallel().tween_property(anim_sprite, "scale", Vector2(1.2, 1.2), 0.05)
+	tween.tween_property(anim_sprite, "scale", Vector2(1.0, 1.0), 0.1)
 	if health <= 0:
-		killed.emit(SCORE_VALUE)
+		_die()
+
+
+# Play death animation, emit score, disable interactions
+func _die() -> void:
+	_is_dying = true
+	remove_from_group("enemies")
+	killed.emit(SCORE_VALUE)
+	set_physics_process(false)
+	$HitBox.set_deferred("monitoring", false)
+	$CollisionShape2D.set_deferred("disabled", true)
+	anim_sprite.play("death")
+
+
+func _on_animation_finished() -> void:
+	if anim_sprite.animation == "death":
 		queue_free()
 
 
 func _on_hitbox_body_entered(body: Node2D) -> void:
+	if _is_dying:
+		return
 	if body.is_in_group("player") and body.has_method("take_damage") and can_deal_damage:
 		body.take_damage(CONTACT_DAMAGE)
 		Stats.record_damage_taken(CONTACT_DAMAGE)
