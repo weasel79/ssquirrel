@@ -214,6 +214,9 @@ func _on_shoot_timer_timeout() -> void:
 
 	_fire_fan(base_dir, forward_count, spread_angle, bullet_type, extra_damage, pierce_count, homing_str)
 
+	# Play shoot sound based on current bullet type
+	SoundManager.play_shoot(bullet_type)
+
 	# Rear shot(s)
 	if mods["rear"] > 0:
 		var rear_dir := -base_dir
@@ -311,7 +314,8 @@ func take_damage(amount: int = 1) -> void:
 		anim_sprite.play("death_" + _last_direction)
 		died.emit()
 		return
-	# Play hit animation briefly, then resume normal
+	# Play hit sound and animation briefly, then resume normal
+	SoundManager.play_player_hit()
 	anim_sprite.play("hit_" + _last_direction)
 	invincible = true
 	await get_tree().create_timer(INVINCIBLE_DURATION).timeout

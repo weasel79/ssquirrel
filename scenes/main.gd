@@ -2,10 +2,11 @@ extends Node2D
 # Main game scene — spawns multiple enemy types in escalating waves,
 # drops stacking weapon upgrades, tracks score and stats.
 # Batch spawning increases over time for more enemies on screen.
+# Background music plays random tracks in a loop via SoundManager.
 
 const SPAWN_MARGIN := 50.0
-const MIN_SPAWN_INTERVAL := 0.35
-const BASE_SPAWN_INTERVAL := 1.8
+const MIN_SPAWN_INTERVAL := 0.30
+const BASE_SPAWN_INTERVAL := 1.0
 const UPGRADE_DROP_CHANCE := 0.3
 
 var enemy_scenes := {
@@ -23,11 +24,12 @@ var elapsed_time := 0.0
 var enemies_killed := 0
 
 # Spawn weights: [current_weight, seconds_until_unlocked]
+# Earlier unlocks: rat at 5s, mole at 20s, raccoon at 35s
 var enemy_weights := {
 	"squirrel": [10, 0.0],
-	"rat":      [0,  15.0],
-	"mole":     [0,  35.0],
-	"raccoon":  [0,  50.0],
+	"rat":      [0,  5.0],
+	"mole":     [0,  20.0],
+	"raccoon":  [0,  35.0],
 }
 
 var upgrade_types := ["spread", "rapid", "pierce", "bigshot", "homing", "orbit", "rear"]
@@ -47,6 +49,9 @@ func _ready() -> void:
 	hud.update_health(player.health)
 	hud.update_mods(player.mods)
 
+	# Start background music
+	SoundManager.play_music()
+
 
 func _process(delta: float) -> void:
 	if game_over and Input.is_action_just_pressed("restart"):
@@ -60,7 +65,7 @@ func _process(delta: float) -> void:
 	_update_enemy_weights()
 
 	# Continuously reduce spawn interval
-	var new_interval := BASE_SPAWN_INTERVAL - (elapsed_time * 0.015)
+	var new_interval := BASE_SPAWN_INTERVAL - (elapsed_time * 0.012)
 	spawn_timer.wait_time = maxf(new_interval, MIN_SPAWN_INTERVAL)
 
 
@@ -75,11 +80,11 @@ func _update_enemy_weights() -> void:
 				"squirrel":
 					data[0] = 10
 				"rat":
-					data[0] = mini(int((elapsed_time - min_time) * 0.4), 10)
+					data[0] = mini(int((elapsed_time - min_time) * 0.5), 10)
 				"mole":
-					data[0] = mini(int((elapsed_time - min_time) * 0.15), 5)
+					data[0] = mini(int((elapsed_time - min_time) * 0.2), 5)
 				"raccoon":
-					data[0] = mini(int((elapsed_time - min_time) * 0.12), 5)
+					data[0] = mini(int((elapsed_time - min_time) * 0.15), 5)
 
 
 func _pick_enemy_type() -> String:
@@ -103,14 +108,14 @@ func _on_spawn_timer_timeout() -> void:
 	if game_over:
 		return
 
-	# Batch size increases over time: 1 at start, up to 4 at 120s+
-	var batch := 1
-	if elapsed_time > 30.0:
-		batch = 2
-	if elapsed_time > 60.0:
+	# Batch size: start at 2, ramp faster — 3 at 20s, 4 at 50s, 5 at 90s
+	var batch := 2
+	if elapsed_time > 20.0:
 		batch = 3
-	if elapsed_time > 120.0:
+	if elapsed_time > 50.0:
 		batch = 4
+	if elapsed_time > 90.0:
+		batch = 5
 
 	var vp := get_viewport_rect().size
 	for _i in range(batch):
@@ -153,6 +158,9 @@ func _on_enemy_killed(value: int, enemy: Node2D, enemy_type: String) -> void:
 	# Record in stats tracker
 	Stats.record_kill(enemy_type.capitalize(), value)
 
+	# Play death explosion sound
+	SoundManager.play_enemy_death()
+
 	# Drop chance — tougher enemies drop more often
 	var drop_chance := UPGRADE_DROP_CHANCE
 	match enemy_type:
@@ -190,3 +198,5 @@ func _on_player_died() -> void:
 	spawn_timer.stop()
 	hud.show_game_over(score, enemies_killed)
 	player.set_physics_process(false)
+	# Play player death sound
+	SoundManager.play_player_death()
