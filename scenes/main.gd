@@ -18,10 +18,12 @@ var enemy_scenes := {
 
 var pickup_scene: PackedScene = preload("res://scenes/pickup/pickup.tscn")
 var powerup_scene: PackedScene = preload("res://scenes/pickup/powerup.tscn")
+var treasure_scene: PackedScene = preload("res://scenes/pickup/treasure.tscn")
 var boss_scene: PackedScene = preload("res://scenes/enemies/boss.tscn")
 var donald_boss_scene: PackedScene = preload("res://scenes/enemies/donald_boss.tscn")
 
 var score: int = 0
+var gold: int = 0
 var game_over := false
 var elapsed_time := 0.0
 var enemies_killed := 0
@@ -195,6 +197,10 @@ func _on_enemy_killed(value: int, enemy: Node2D, enemy_type: String) -> void:
 	if randf() < drop_chance and is_instance_valid(enemy):
 		_spawn_pickup(enemy.global_position)
 
+	# 20% treasure drop independent of weapon upgrade
+	if randf() < 0.20 and is_instance_valid(enemy):
+		_spawn_treasure(enemy.global_position)
+
 
 func _spawn_pickup(pos: Vector2) -> void:
 	var pickup: Node2D = pickup_scene.instantiate()
@@ -202,6 +208,19 @@ func _spawn_pickup(pos: Vector2) -> void:
 	pickup.weapon_type = upgrade_types[randi() % upgrade_types.size()]
 	pickup.collected.connect(_on_pickup_collected)
 	add_child(pickup)
+
+
+func _spawn_treasure(pos: Vector2) -> void:
+	var t: Node2D = treasure_scene.instantiate()
+	t.global_position = pos
+	t.collected.connect(_on_treasure_collected)
+	add_child(t)
+
+
+func _on_treasure_collected() -> void:
+	gold += 1
+	hud.update_gold(gold)
+	SoundManager.play_coin()
 
 
 func _on_pickup_collected(mod_name: String) -> void:
@@ -309,6 +328,12 @@ func _on_boss_killed(value: int, boss: Node2D) -> void:
 		_boss_respawn_timer = _boss_fight_duration * 2.0
 		hud.show_boss_defeated()
 		SoundManager.play_stage_clear()
+	# Boss always drops 10 treasures scattered around its death position
+	if is_instance_valid(boss):
+		for i in range(10):
+			var angle := randf() * TAU
+			var dist := randf_range(20.0, 80.0)
+			_spawn_treasure(boss.global_position + Vector2.from_angle(angle) * dist)
 
 
 # ── Power-ups ──────────────────────────────────────────────────────────

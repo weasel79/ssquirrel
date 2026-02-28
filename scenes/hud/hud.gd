@@ -39,6 +39,9 @@ var mod_display := {
 
 var _active_buffs := {}  # { "speed": remaining_seconds, ... }
 
+# Gold label — created dynamically so no tscn edit needed
+var _gold_label: Label = null
+
 # Powerup popup — created once, reused for each pickup
 var _powerup_popup: Label = null
 var _powerup_tween: Tween = null
@@ -61,6 +64,7 @@ func _ready() -> void:
 	boss_hp_bar.visible = false
 	buff_label.visible = false
 	update_score(0)
+	_create_gold_label()
 	_create_powerup_popup()
 
 
@@ -75,6 +79,25 @@ func _process(delta: float) -> void:
 
 	# Update buff timers display
 	_update_buff_display(delta)
+
+
+func _create_gold_label() -> void:
+	_gold_label = Label.new()
+	_gold_label.offset_left = 10.0
+	_gold_label.offset_top = 66.0
+	_gold_label.offset_right = 200.0
+	_gold_label.offset_bottom = 80.0
+	_gold_label.add_theme_font_size_override("font_size", 11)
+	_gold_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2, 1.0))
+	_gold_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	_gold_label.add_theme_constant_override("outline_size", 2)
+	_gold_label.text = "Gold: 0"
+	add_child(_gold_label)
+
+
+func update_gold(value: int) -> void:
+	if _gold_label:
+		_gold_label.text = "Gold: %d" % value
 
 
 func update_score(value: int) -> void:
