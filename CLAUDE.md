@@ -226,6 +226,43 @@ Git committed + web export to GitHub Pages.
 
 ---
 
+## Session — 2026-02-28 (cont.6) — Player animation corrections + boss tuning + HUD keys
+
+### Summary
+Corrected all cape/walk animation frame assignments in player.gd, added new animations, updated animation state machine, tuned Donald boss difficulty, fixed HUD key list, and pushed web export to GitHub Pages.
+
+### Frame changes (player.gd `_build_animations()`)
+| Animation | Was | Now |
+|---|---|---|
+| `cape_idle_left` | `[114]` | `[111,112,113,114]` 4-frame |
+| `cape_idle_right` | `[115]` | `[115,116,117,118]` 4-frame |
+| `cape_walk_left` | `[111,112,113]` | `[120,121,122,123,124]` |
+| `cape_walk_right` | `[116,117,118]` | `[125,126,127,128,129]` |
+| `cape_jump_left` | `[120–124]` | `[132,133,134,135]` |
+| `cape_jump_right` | `[125–129]` | `[136,137,138,139]` |
+
+### New animations added
+- `walk_up` — [158,159,160]; plays when moving straight up without cape
+- `cape_walk_up` — [143,146]; cape + moving up
+- `cape_walk_down` — [144,145]; cape + moving down
+- `cape_toxic_left/right` — [154,156] / [155,157]; looping hazard effect
+- `cheer` — [170,171,172,173,174]; non-looping, call `player.play_cheer()`
+
+### Animation state machine update
+- `absf(input_dir.x) <= 0.1` check before horizontal walk → triggers `walk_up` or `cape_walk_up/down`
+
+### Other changes
+- Donald boss: `MAX_HEALTH` 1500→2250 (+50%), `FINGER_INTERVAL` 8.0→6.4s (25% more frequent)
+- HUD `_refresh_stats_panel()`: fixed "SPACE = Dodge" → "SPACE = Jump"; added "C = Cape toggle"
+- Web export + git commit + push to `weasel79/ssquirrel` master
+
+### To-do
+- [ ] Test new cape animations in-game (correct frames confirmed by user, not visually tested yet)
+- [ ] Trigger `play_cheer()` from main.gd on boss defeat
+- [ ] cape_toxic animation: hook up to actual toxic tile detection
+
+---
+
 ## Session — 2026-02-28 (cont.4) — Terrain file reorganisation
 
 ### Summary
