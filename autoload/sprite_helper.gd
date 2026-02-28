@@ -27,11 +27,13 @@ func build_sprite_frames(anim_defs: Dictionary) -> SpriteFrames:
 		sf.set_animation_speed(anim_name, fps)
 		sf.set_animation_loop(anim_name, loop)
 
+		var x_off: int = def.get("x_offset", 0)
+		var y_off: int = def.get("y_offset", 0)
 		for i in range(frame_count):
 			var atlas := AtlasTexture.new()
 			atlas.atlas = tex
 			atlas.region = Rect2(
-				i * frame_size.x, 0,
+				x_off + i * frame_size.x, y_off,
 				frame_size.x, frame_size.y
 			)
 			sf.add_frame(anim_name, atlas)

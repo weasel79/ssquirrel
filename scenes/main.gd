@@ -19,6 +19,7 @@ var enemy_scenes := {
 var pickup_scene: PackedScene = preload("res://scenes/pickup/pickup.tscn")
 var powerup_scene: PackedScene = preload("res://scenes/pickup/powerup.tscn")
 var boss_scene: PackedScene = preload("res://scenes/enemies/boss.tscn")
+var donald_boss_scene: PackedScene = preload("res://scenes/enemies/donald_boss.tscn")
 
 var score: int = 0
 var game_over := false
@@ -256,7 +257,8 @@ func _update_boss_respawn(delta: float) -> void:
 func _start_boss_wave() -> void:
 	_boss_wave += 1
 	_boss_wave_active = true
-	_bosses_alive = _boss_wave
+	# 1 Donald boss + N Link bosses per wave
+	_bosses_alive = _boss_wave + 1
 	_boss_fight_start = elapsed_time
 	SoundManager.play_boss_alarm()
 	# Play "running out of time" warning after alarm finishes
@@ -266,10 +268,18 @@ func _start_boss_wave() -> void:
 	)
 	hud.show_boss_fight()
 
-	# Show HP bar for total wave HP
-	var total_hp: int = _boss_wave * 1000
+	# Total HP: Donald (1500) + N × Link (1000)
+	var total_hp: int = 1500 + _boss_wave * 1000
 	hud.show_boss_hp_bar(total_hp)
 
+	# Always spawn one Donald boss
+	var donald: Node2D = donald_boss_scene.instantiate()
+	donald.global_position = player.global_position + Vector2.from_angle(randf() * TAU) * SPAWN_DISTANCE
+	donald.killed.connect(_on_boss_killed.bind(donald))
+	donald.health_changed.connect(_on_boss_health_changed)
+	add_child(donald)
+
+	# Spawn N Link bosses
 	for i in range(_boss_wave):
 		var boss: Node2D = boss_scene.instantiate()
 		var angle := (float(i) / float(_boss_wave)) * TAU + randf() * 0.5
@@ -280,15 +290,13 @@ func _start_boss_wave() -> void:
 
 
 func _on_boss_health_changed(_current: int, _maximum: int) -> void:
-	# Sum HP across all living bosses
+	# Sum HP across all living bosses (any enemy that emits health_changed is a boss)
 	var total_hp := 0
 	var total_max := 0
 	for node in get_tree().get_nodes_in_group("enemies"):
-		if node.has_method("take_damage") and node.has_signal("health_changed"):
-			if "MAX_HEALTH" in node and "health" in node:
-				if node.get("MAX_HEALTH") == 1000:
-					total_hp += maxi(node.health, 0)
-					total_max += node.MAX_HEALTH
+		if node.has_signal("health_changed") and "MAX_HEALTH" in node and "health" in node:
+			total_hp += maxi(node.health, 0)
+			total_max += node.MAX_HEALTH
 	hud.update_boss_hp(total_hp, total_max)
 
 
