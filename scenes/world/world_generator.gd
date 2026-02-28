@@ -72,7 +72,7 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_just_pressed("randomize_terrain"):
+	if event.is_action_pressed("randomize_terrain") and not event.is_echo():
 		randomize_terrain()
 
 
