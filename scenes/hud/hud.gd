@@ -39,8 +39,22 @@ var mod_display := {
 
 var _active_buffs := {}  # { "speed": remaining_seconds, ... }
 
-# Gold label — created dynamically so no tscn edit needed
-var _gold_label: Label = null
+# Gold display — icon advances through 10 treasure images as thresholds are passed
+const GOLD_THRESHOLDS: Array[int] = [4, 10, 40, 100, 400, 1000, 4000, 10000, 40000]
+var _gold_textures: Array[Texture2D] = [
+	preload("res://art/items/treasure/1.png"),
+	preload("res://art/items/treasure/2.png"),
+	preload("res://art/items/treasure/3.png"),
+	preload("res://art/items/treasure/4.png"),
+	preload("res://art/items/treasure/5.png"),
+	preload("res://art/items/treasure/6.png"),
+	preload("res://art/items/treasure/7.png"),
+	preload("res://art/items/treasure/8.png"),
+	preload("res://art/items/treasure/9.png"),
+	preload("res://art/items/treasure/10.png"),
+]
+var _gold_icon: TextureRect = null
+var _gold_count_label: Label = null
 
 # Powerup popup — created once, reused for each pickup
 var _powerup_popup: Label = null
@@ -64,7 +78,7 @@ func _ready() -> void:
 	boss_hp_bar.visible = false
 	buff_label.visible = false
 	update_score(0)
-	_create_gold_label()
+	_create_gold_display()
 	_create_powerup_popup()
 
 
@@ -81,23 +95,48 @@ func _process(delta: float) -> void:
 	_update_buff_display(delta)
 
 
-func _create_gold_label() -> void:
-	_gold_label = Label.new()
-	_gold_label.offset_left = 10.0
-	_gold_label.offset_top = 66.0
-	_gold_label.offset_right = 200.0
-	_gold_label.offset_bottom = 80.0
-	_gold_label.add_theme_font_size_override("font_size", 11)
-	_gold_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2, 1.0))
-	_gold_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
-	_gold_label.add_theme_constant_override("outline_size", 2)
-	_gold_label.text = "Gold: 0"
-	add_child(_gold_label)
+func _get_gold_icon_index(gold_count: int) -> int:
+	var idx := 0
+	for threshold: int in GOLD_THRESHOLDS:
+		if gold_count >= threshold:
+			idx += 1
+		else:
+			break
+	return mini(idx, _gold_textures.size() - 1)
+
+
+func _create_gold_display() -> void:
+	var hbox := HBoxContainer.new()
+	hbox.offset_left = 10.0
+	hbox.offset_top = 66.0
+	hbox.offset_right = 200.0
+	hbox.offset_bottom = 82.0
+	hbox.add_theme_constant_override("separation", 3)
+	add_child(hbox)
+
+	_gold_icon = TextureRect.new()
+	_gold_icon.texture = _gold_textures[0]
+	_gold_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_gold_icon.custom_minimum_size = Vector2(16, 16)
+	_gold_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	hbox.add_child(_gold_icon)
+
+	_gold_count_label = Label.new()
+	_gold_count_label.text = "0"
+	_gold_count_label.layout_mode = 2
+	_gold_count_label.add_theme_font_size_override("font_size", 11)
+	_gold_count_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2, 1.0))
+	_gold_count_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	_gold_count_label.add_theme_constant_override("outline_size", 2)
+	_gold_count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hbox.add_child(_gold_count_label)
 
 
 func update_gold(value: int) -> void:
-	if _gold_label:
-		_gold_label.text = "Gold: %d" % value
+	if _gold_icon:
+		_gold_icon.texture = _gold_textures[_get_gold_icon_index(value)]
+	if _gold_count_label:
+		_gold_count_label.text = str(value)
 
 
 func update_score(value: int) -> void:
