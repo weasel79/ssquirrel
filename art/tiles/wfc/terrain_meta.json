@@ -1,0 +1,447 @@
+{
+  "tile_size": 32,
+  "source_gif_frame_size": 32,
+  "tiles": {
+    "sand_fill_0": {
+      "material": "sand",
+      "position": "fill_0",
+      "source_frame": 381,
+      "file": "sand_fill_0.png",
+      "approximate": false
+    },
+    "sand_fill_1": {
+      "material": "sand",
+      "position": "fill_1",
+      "source_frame": 916,
+      "file": "sand_fill_1.png",
+      "approximate": false
+    },
+    "sand_fill_2": {
+      "material": "sand",
+      "position": "fill_2",
+      "source_frame": 917,
+      "file": "sand_fill_2.png",
+      "approximate": false
+    },
+    "sand_edge_top": {
+      "material": "sand",
+      "position": "edge_top",
+      "source_frame": 349,
+      "file": "sand_edge_top.png",
+      "approximate": false
+    },
+    "sand_edge_bottom": {
+      "material": "sand",
+      "position": "edge_bottom",
+      "source_frame": 413,
+      "file": "sand_edge_bottom.png",
+      "approximate": false
+    },
+    "sand_edge_left": {
+      "material": "sand",
+      "position": "edge_left",
+      "source_frame": 380,
+      "file": "sand_edge_left.png",
+      "approximate": false
+    },
+    "sand_edge_right": {
+      "material": "sand",
+      "position": "edge_right",
+      "source_frame": 382,
+      "file": "sand_edge_right.png",
+      "approximate": false
+    },
+    "sand_outer_tl": {
+      "material": "sand",
+      "position": "outer_tl",
+      "source_frame": 348,
+      "file": "sand_outer_tl.png",
+      "approximate": false
+    },
+    "sand_outer_tr": {
+      "material": "sand",
+      "position": "outer_tr",
+      "source_frame": 350,
+      "file": "sand_outer_tr.png",
+      "approximate": false
+    },
+    "sand_outer_bl": {
+      "material": "sand",
+      "position": "outer_bl",
+      "source_frame": 412,
+      "file": "sand_outer_bl.png",
+      "approximate": false
+    },
+    "sand_outer_br": {
+      "material": "sand",
+      "position": "outer_br",
+      "source_frame": 414,
+      "file": "sand_outer_br.png",
+      "approximate": false
+    },
+    "sand_inner_tl": {
+      "material": "sand",
+      "position": "inner_tl",
+      "source_frame": 381,
+      "file": "sand_inner_tl.png",
+      "approximate": true
+    },
+    "sand_inner_tr": {
+      "material": "sand",
+      "position": "inner_tr",
+      "source_frame": 381,
+      "file": "sand_inner_tr.png",
+      "approximate": true
+    },
+    "sand_inner_bl": {
+      "material": "sand",
+      "position": "inner_bl",
+      "source_frame": 381,
+      "file": "sand_inner_bl.png",
+      "approximate": true
+    },
+    "sand_inner_br": {
+      "material": "sand",
+      "position": "inner_br",
+      "source_frame": 381,
+      "file": "sand_inner_br.png",
+      "approximate": true
+    },
+    "water_fill_0": {
+      "material": "water",
+      "position": "fill_0",
+      "source_frame": 294,
+      "file": "water_fill_0.png",
+      "approximate": false
+    },
+    "water_fill_1": {
+      "material": "water",
+      "position": "fill_1",
+      "source_frame": 295,
+      "file": "water_fill_1.png",
+      "approximate": false
+    },
+    "water_fill_2": {
+      "material": "water",
+      "position": "fill_2",
+      "source_frame": 452,
+      "file": "water_fill_2.png",
+      "approximate": false
+    },
+    "water_edge_top": {
+      "material": "water",
+      "position": "edge_top",
+      "source_frame": 351,
+      "file": "water_edge_top.png",
+      "approximate": false
+    },
+    "water_edge_bottom": {
+      "material": "water",
+      "position": "edge_bottom",
+      "source_frame": 294,
+      "file": "water_edge_bottom.png",
+      "approximate": true
+    },
+    "water_edge_left": {
+      "material": "water",
+      "position": "edge_left",
+      "source_frame": 401,
+      "file": "water_edge_left.png",
+      "approximate": false
+    },
+    "water_edge_right": {
+      "material": "water",
+      "position": "edge_right",
+      "source_frame": 403,
+      "file": "water_edge_right.png",
+      "approximate": false
+    },
+    "water_outer_tl": {
+      "material": "water",
+      "position": "outer_tl",
+      "source_frame": 294,
+      "file": "water_outer_tl.png",
+      "approximate": false
+    },
+    "water_outer_tr": {
+      "material": "water",
+      "position": "outer_tr",
+      "source_frame": 294,
+      "file": "water_outer_tr.png",
+      "approximate": false
+    },
+    "water_outer_bl": {
+      "material": "water",
+      "position": "outer_bl",
+      "source_frame": 294,
+      "file": "water_outer_bl.png",
+      "approximate": false
+    },
+    "water_outer_br": {
+      "material": "water",
+      "position": "outer_br",
+      "source_frame": 294,
+      "file": "water_outer_br.png",
+      "approximate": false
+    },
+    "water_inner_tl": {
+      "material": "water",
+      "position": "inner_tl",
+      "source_frame": 294,
+      "file": "water_inner_tl.png",
+      "approximate": true
+    },
+    "water_inner_tr": {
+      "material": "water",
+      "position": "inner_tr",
+      "source_frame": 294,
+      "file": "water_inner_tr.png",
+      "approximate": true
+    },
+    "water_inner_bl": {
+      "material": "water",
+      "position": "inner_bl",
+      "source_frame": 294,
+      "file": "water_inner_bl.png",
+      "approximate": true
+    },
+    "water_inner_br": {
+      "material": "water",
+      "position": "inner_br",
+      "source_frame": 294,
+      "file": "water_inner_br.png",
+      "approximate": true
+    },
+    "earth_fill_0": {
+      "material": "earth",
+      "position": "fill_0",
+      "source_frame": 703,
+      "file": "earth_fill_0.png",
+      "approximate": false
+    },
+    "earth_fill_1": {
+      "material": "earth",
+      "position": "fill_1",
+      "source_frame": 704,
+      "file": "earth_fill_1.png",
+      "approximate": false
+    },
+    "earth_fill_2": {
+      "material": "earth",
+      "position": "fill_2",
+      "source_frame": 705,
+      "file": "earth_fill_2.png",
+      "approximate": false
+    },
+    "earth_fill_3": {
+      "material": "earth",
+      "position": "fill_3",
+      "source_frame": 706,
+      "file": "earth_fill_3.png",
+      "approximate": false
+    },
+    "earth_edge_top": {
+      "material": "earth",
+      "position": "edge_top",
+      "source_frame": 265,
+      "file": "earth_edge_top.png",
+      "approximate": false
+    },
+    "earth_edge_bottom": {
+      "material": "earth",
+      "position": "edge_bottom",
+      "source_frame": 725,
+      "file": "earth_edge_bottom.png",
+      "approximate": false
+    },
+    "earth_edge_left": {
+      "material": "earth",
+      "position": "edge_left",
+      "source_frame": 296,
+      "file": "earth_edge_left.png",
+      "approximate": false
+    },
+    "earth_edge_right": {
+      "material": "earth",
+      "position": "edge_right",
+      "source_frame": 298,
+      "file": "earth_edge_right.png",
+      "approximate": false
+    },
+    "earth_outer_tl": {
+      "material": "earth",
+      "position": "outer_tl",
+      "source_frame": 264,
+      "file": "earth_outer_tl.png",
+      "approximate": false
+    },
+    "earth_outer_tr": {
+      "material": "earth",
+      "position": "outer_tr",
+      "source_frame": 84,
+      "file": "earth_outer_tr.png",
+      "approximate": false
+    },
+    "earth_outer_bl": {
+      "material": "earth",
+      "position": "outer_bl",
+      "source_frame": 37,
+      "file": "earth_outer_bl.png",
+      "approximate": false
+    },
+    "earth_outer_br": {
+      "material": "earth",
+      "position": "outer_br",
+      "source_frame": 852,
+      "file": "earth_outer_br.png",
+      "approximate": false
+    },
+    "earth_inner_tl": {
+      "material": "earth",
+      "position": "inner_tl",
+      "source_frame": 703,
+      "file": "earth_inner_tl.png",
+      "approximate": true
+    },
+    "earth_inner_tr": {
+      "material": "earth",
+      "position": "inner_tr",
+      "source_frame": 703,
+      "file": "earth_inner_tr.png",
+      "approximate": true
+    },
+    "earth_inner_bl": {
+      "material": "earth",
+      "position": "inner_bl",
+      "source_frame": 703,
+      "file": "earth_inner_bl.png",
+      "approximate": true
+    },
+    "earth_inner_br": {
+      "material": "earth",
+      "position": "inner_br",
+      "source_frame": 703,
+      "file": "earth_inner_br.png",
+      "approximate": true
+    },
+    "stone_fill_0": {
+      "material": "stone",
+      "position": "fill_0",
+      "source_frame": 870,
+      "file": "stone_fill_0.png",
+      "approximate": false
+    },
+    "stone_fill_1": {
+      "material": "stone",
+      "position": "fill_1",
+      "source_frame": 871,
+      "file": "stone_fill_1.png",
+      "approximate": false
+    },
+    "stone_fill_2": {
+      "material": "stone",
+      "position": "fill_2",
+      "source_frame": 872,
+      "file": "stone_fill_2.png",
+      "approximate": false
+    },
+    "stone_fill_3": {
+      "material": "stone",
+      "position": "fill_3",
+      "source_frame": 216,
+      "file": "stone_fill_3.png",
+      "approximate": false
+    },
+    "stone_fill_4": {
+      "material": "stone",
+      "position": "fill_4",
+      "source_frame": 217,
+      "file": "stone_fill_4.png",
+      "approximate": false
+    },
+    "stone_edge_top": {
+      "material": "stone",
+      "position": "edge_top",
+      "source_frame": 215,
+      "file": "stone_edge_top.png",
+      "approximate": false
+    },
+    "stone_edge_bottom": {
+      "material": "stone",
+      "position": "edge_bottom",
+      "source_frame": 870,
+      "file": "stone_edge_bottom.png",
+      "approximate": false
+    },
+    "stone_edge_left": {
+      "material": "stone",
+      "position": "edge_left",
+      "source_frame": 276,
+      "file": "stone_edge_left.png",
+      "approximate": false
+    },
+    "stone_edge_right": {
+      "material": "stone",
+      "position": "edge_right",
+      "source_frame": 278,
+      "file": "stone_edge_right.png",
+      "approximate": false
+    },
+    "stone_outer_tl": {
+      "material": "stone",
+      "position": "outer_tl",
+      "source_frame": 249,
+      "file": "stone_outer_tl.png",
+      "approximate": false
+    },
+    "stone_outer_tr": {
+      "material": "stone",
+      "position": "outer_tr",
+      "source_frame": 252,
+      "file": "stone_outer_tr.png",
+      "approximate": false
+    },
+    "stone_outer_bl": {
+      "material": "stone",
+      "position": "outer_bl",
+      "source_frame": 870,
+      "file": "stone_outer_bl.png",
+      "approximate": false
+    },
+    "stone_outer_br": {
+      "material": "stone",
+      "position": "outer_br",
+      "source_frame": 881,
+      "file": "stone_outer_br.png",
+      "approximate": false
+    },
+    "stone_inner_tl": {
+      "material": "stone",
+      "position": "inner_tl",
+      "source_frame": 870,
+      "file": "stone_inner_tl.png",
+      "approximate": true
+    },
+    "stone_inner_tr": {
+      "material": "stone",
+      "position": "inner_tr",
+      "source_frame": 870,
+      "file": "stone_inner_tr.png",
+      "approximate": true
+    },
+    "stone_inner_bl": {
+      "material": "stone",
+      "position": "inner_bl",
+      "source_frame": 870,
+      "file": "stone_inner_bl.png",
+      "approximate": true
+    },
+    "stone_inner_br": {
+      "material": "stone",
+      "position": "inner_br",
+      "source_frame": 870,
+      "file": "stone_inner_br.png",
+      "approximate": true
+    }
+  }
+}

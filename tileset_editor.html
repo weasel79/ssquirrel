@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GIF Tileset Editor</title>
+<script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gifenc@1.0.3/dist/gifenc.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{display:flex;flex-direction:column;height:100vh;background:#111;color:#ccc;
+  font:12px/1.5 'Consolas',monospace;overflow:hidden}
+
+/* ── toolbar ── */
+#bar{background:#1c1c1c;border-bottom:1px solid #2e2e2e;padding:5px 10px;
+  display:flex;align-items:center;flex-wrap:wrap;gap:7px;flex-shrink:0}
+.sep{width:1px;height:20px;background:#333;flex-shrink:0}
+label{display:flex;align-items:center;gap:4px;color:#999;white-space:nowrap}
+input[type=number]{width:50px;padding:2px 4px;background:#222;color:#ddd;
+  border:1px solid #383838;border-radius:2px}
+input[type=color]{width:26px;height:20px;padding:1px;background:#222;
+  border:1px solid #383838;border-radius:2px;cursor:pointer}
+input[type=range]{width:80px;cursor:pointer;accent-color:#3a7cba}
+select{padding:2px 5px;background:#222;color:#ddd;border:1px solid #383838;border-radius:2px}
+button{padding:3px 9px;background:#1a4a78;color:#ccc;border:none;
+  border-radius:2px;cursor:pointer;font:inherit}
+button:hover{background:#2a6aaa}
+button:disabled{background:#1c1c1c;color:#444;cursor:default}
+button.warn{background:#6a2020}
+button.warn:hover{background:#9a3030}
+#status{margin-left:auto;font-size:10px;color:#444;white-space:nowrap}
+
+/* ── drop zone ── */
+#drop{flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:8px;color:#2d2d2d;border:2px dashed #222;
+  margin:24px;border-radius:8px;cursor:pointer}
+#drop.over{border-color:#2a6aaa;color:#2a6aaa}
+#drop b{font-weight:normal;color:#3a3a3a}
+
+/* ── scroll + grid ── */
+#scroll{flex:1;overflow:auto;padding:10px;display:none;position:relative}
+#grid{display:flex;flex-wrap:wrap;gap:2px;align-content:flex-start;
+  transform-origin:top left}
+
+/* ── tile ── */
+.ti{position:relative;border:1px solid #252525;flex-shrink:0;line-height:0;
+  cursor:grab;transition:border-color .08s}
+.ti:hover{border-color:#555;z-index:1}
+.ti canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+.ti .n{position:absolute;bottom:1px;right:2px;font-size:7px;
+  color:rgba(255,255,255,.3);pointer-events:none;line-height:1;
+  text-shadow:0 0 3px #000}
+.ti:hover .n{color:rgba(255,255,255,.65)}
+.sortable-ghost  {opacity:.15}
+.sortable-chosen {border-color:#3a9ef5!important;cursor:grabbing}
+.sortable-drag   {opacity:.85;box-shadow:0 4px 14px rgba(0,0,0,.7)}
+
+/* checkerboard bg for transparency */
+.checker{background-image:
+    linear-gradient(45deg,#6a6a6a 25%,transparent 25%),
+    linear-gradient(-45deg,#6a6a6a 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,#6a6a6a 75%),
+    linear-gradient(-45deg,transparent 75%,#6a6a6a 75%);
+  background-size:8px 8px;
+  background-position:0 0,0 4px,4px -4px,-4px 0;
+  background-color:#484848}
+
+/* ── info panel ── */
+#info-panel{
+  display:none;position:fixed;bottom:14px;right:14px;z-index:200;
+  background:#1a1a1a;border:1px solid #3a3a3a;border-radius:4px;
+  padding:10px 14px;min-width:230px;font-size:11px;line-height:1.8;
+  box-shadow:0 4px 20px rgba(0,0,0,.7)}
+#info-panel b{color:#888;display:block;margin-bottom:4px;font-size:10px;
+  letter-spacing:.05em;text-transform:uppercase}
+#info-panel table{border-collapse:collapse}
+#info-panel td{padding:1px 6px 1px 0;color:#777}
+#info-panel td:first-child{color:#bbb;white-space:nowrap}
+#info-panel .close{float:right;background:none;border:none;color:#555;
+  cursor:pointer;font-size:13px;padding:0;line-height:1}
+#info-panel .close:hover{color:#ccc}
+
+/* ── undo flash ── */
+@keyframes flash{0%{outline:2px solid #3a9ef5}100%{outline:2px solid transparent}}
+.undo-flash{animation:flash .3s ease-out}
+</style>
+</head>
+<body>
+
+<!-- ── toolbar ── -->
+<div id="bar">
+  <button onclick="$('fi').click()">Open GIF</button>
+  <input id="fi" type="file" accept=".gif" style="display:none">
+  <div class="sep"></div>
+  <div style="flex-basis:100%;height:0"></div>
+  <button onclick="$('pfi').click()">Open PNG</button>
+  <input id="pfi" type="file" accept=".png" style="display:none">
+  <label title="Native tile size in pixels when slicing a PNG">
+    tile px <input id="tilepx" type="number" value="32" min="1" max="512">
+  </label>
+  <button id="savePngBtn" disabled onclick="doExportPNG()">Save PNG</button>
+  <div class="sep"></div>
+
+  <label title="Display size per tile (px)">
+    px <input id="disp" type="number" value="32" min="4" max="512">
+  </label>
+  <label title="Grid column count">
+    cols <input id="cols" type="number" value="16" min="1" max="256">
+  </label>
+  <label title="Zoom the whole grid (1×–4×)">
+    zoom
+    <input id="zoom" type="range" min="1" max="4" step="0.25" value="1">
+    <span id="zoomLbl" style="color:#666;min-width:24px">1×</span>
+  </label>
+  <div class="sep"></div>
+
+  <label title="Show checkerboard behind transparent pixels">
+    <input id="alpha" type="checkbox"> alpha
+  </label>
+  <label title="Background colour for non-transparent display">
+    bg <input id="bg" type="color" value="#1e140f">
+  </label>
+  <div class="sep"></div>
+
+  <label title="Per-frame delay in exported GIF (ms)">
+    delay ms
+    <input id="fms" type="number" value="100" min="10" max="9990" style="width:56px">
+  </label>
+  <div class="sep"></div>
+
+  <button id="undoBtn" disabled onclick="doUndo()" title="Ctrl+Z">↩ Undo</button>
+  <div class="sep"></div>
+
+  <button id="saveBtn"    disabled onclick="doSave()"    title="Save arrangement to JSON file">💾 Save</button>
+  <button id="loadBtn"             onclick="$('lfi').click()" title="Load arrangement from JSON file">📂 Load</button>
+  <input id="lfi" type="file" accept=".json" style="display:none">
+  <button id="refBtn"    disabled onclick="doRefresh()"  title="Re-decode source GIF keeping current arrangement">⟳ Refresh</button>
+  <div class="sep"></div>
+
+  <button id="expBtn"    disabled onclick="doExport()">Export GIF</button>
+  <button onclick="toggleInfo()" title="Show keyboard shortcuts" style="background:#222;padding:3px 7px">ⓘ</button>
+
+  <span id="status">Open a .gif (frames→tiles) or .png (sliced by tile px)</span>
+</div>
+
+<!-- ── drop zone ── -->
+<div id="drop">
+  <span style="font-size:15px;color:#333">▼ Drop a .gif or .png here or click <b>Open GIF / Open PNG</b></span>
+  <span style="font-size:10px;color:#252525">right-click = delete · ctrl+click = duplicate · drag = reorder · shift+drag = swap</span>
+</div>
+
+<!-- ── grid ── -->
+<div id="scroll">
+  <div id="grid"></div>
+</div>
+
+<!-- ── info panel ── -->
+<div id="info-panel">
+  <button class="close" onclick="toggleInfo()">✕</button>
+  <b>Shortcuts</b>
+  <table>
+    <tr><td>Drag</td>           <td>reorder tiles</td></tr>
+    <tr><td>Shift+drag</td>     <td>swap two tiles</td></tr>
+    <tr><td>Right-click</td>    <td>delete tile</td></tr>
+    <tr><td>Ctrl+click</td>     <td>duplicate tile (after)</td></tr>
+    <tr><td>Ctrl+Z</td>         <td>undo (10 steps)</td></tr>
+    <tr><td></td><td></td></tr>
+    <tr><td>Zoom slider</td>    <td>scale grid 1×–4×</td></tr>
+    <tr><td>px input</td>       <td>tile display size</td></tr>
+    <tr><td>cols select</td>    <td>grid column count</td></tr>
+    <tr><td></td><td></td></tr>
+    <tr><td>💾 Save</td>        <td>download arrangement JSON</td></tr>
+    <tr><td>📂 Load</td>        <td>restore from JSON</td></tr>
+    <tr><td>⟳ Refresh</td>     <td>re-read source GIF,<br>keep arrangement</td></tr>
+    <tr><td>Export GIF</td>     <td>download rearranged GIF</td></tr>
+  </table>
+</div>
+
+<script>
+// ─── global state ─────────────────────────────────────────────────────────────
+let nativeW = 32, nativeH = 32;
+let allFrames = [];          // allFrames[i] = srcCanvas for original frame i
+let lastFile  = null;        // last opened File object (for Refresh)
+let sortInst  = null;
+const undoStack = [];        // [{src, fi}][]  — fi = original frame index
+const UNDO_MAX  = 10;
+
+// drag-swap bookkeeping
+let dragState = null;        // {items: .ti[], oldIdx}
+let shiftHeld = false;       // tracked via keydown/keyup — reliable during drag
+document.addEventListener('keydown', e => { if (e.key === 'Shift') shiftHeld = true; });
+document.addEventListener('keyup',   e => { if (e.key === 'Shift') shiftHeld = false; });
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+const $      = id => document.getElementById(id);
+const disp   = () => Math.max(4, +$('disp').value || 32);
+const gcols  = () => Math.max(1, +$('cols').value || 16);
+
+// ─── undo ─────────────────────────────────────────────────────────────────────
+function pushUndo() {
+  const state = [...document.querySelectorAll('.ti')]
+    .map(ti => ({ src: ti._src, fi: ti._fi }));
+  undoStack.push(state);
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+  $('undoBtn').disabled = false;
+}
+
+function doUndo() {
+  if (!undoStack.length) return;
+  const state = undoStack.pop();
+  const grid = $('grid');
+  grid.innerHTML = '';
+  for (const { src, fi } of state) {
+    const ti = makeTile(src, fi);
+    grid.appendChild(ti);
+    styleItem(ti);
+  }
+  reindex();
+  updateLayout();
+  if (!undoStack.length) $('undoBtn').disabled = true;
+  // visual flash
+  grid.classList.add('undo-flash');
+  grid.addEventListener('animationend', () => grid.classList.remove('undo-flash'), {once:true});
+}
+
+// ─── tile style ───────────────────────────────────────────────────────────────
+function styleItem(ti) {
+  const d  = disp();
+  const al = $('alpha').checked;
+  const c  = ti.querySelector('canvas');
+  c.style.width = c.style.height = d + 'px';
+  ti.style.width = ti.style.height = (d + 2) + 'px';
+  al ? ti.classList.add('checker') : ti.classList.remove('checker');
+  ti.style.backgroundColor = al ? '' : $('bg').value;
+}
+
+function updateLayout() {
+  const d = disp();
+  $('grid').style.maxWidth = (gcols() * (d + 4)) + 'px';
+  document.querySelectorAll('.ti').forEach(styleItem);
+}
+
+function applyZoom() {
+  const z = +$('zoom').value;
+  $('zoomLbl').textContent = z + '×';
+  $('grid').style.transform = `scale(${z})`;
+  // expand scroll container so scrollbars reflect zoomed size
+  $('grid').parentElement.style.paddingBottom =
+    $('grid').offsetHeight * (z - 1) + 10 + 'px';
+  $('grid').parentElement.style.paddingRight  =
+    $('grid').offsetWidth  * (z - 1) + 10 + 'px';
+}
+
+function reindex() {
+  document.querySelectorAll('.ti').forEach((ti, i) => {
+    ti.querySelector('.n').textContent = i;
+  });
+}
+
+// ─── DOM swap helper ──────────────────────────────────────────────────────────
+function swapEls(a, b) {
+  const ph = document.createComment('ph');
+  a.after(ph);
+  b.after(a);
+  ph.replaceWith(b);
+}
+
+// ─── tile factory ─────────────────────────────────────────────────────────────
+function makeTile(srcCanvas, frameIndex = -1) {
+  const ti = document.createElement('div');
+  ti.className = 'ti';
+  ti._src = srcCanvas;   // native-res canvas used for export
+  ti._fi  = frameIndex;  // original GIF frame index (-1 = from save/unknown)
+
+  const c = document.createElement('canvas');
+  c.width  = nativeW;
+  c.height = nativeH;
+  c.getContext('2d').drawImage(srcCanvas, 0, 0);
+  ti.appendChild(c);
+
+  const n = document.createElement('span');
+  n.className = 'n';
+  ti.appendChild(n);
+
+  // right-click → delete
+  ti.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    pushUndo();
+    ti.remove();
+    reindex();
+  });
+
+  // ctrl+click → duplicate after
+  ti.addEventListener('click', e => {
+    if (!e.ctrlKey) return;
+    pushUndo();
+    const cl = makeTile(srcCanvas, frameIndex);
+    ti.after(cl);
+    styleItem(cl);
+    reindex();
+  });
+
+  return ti;
+}
+
+// ─── SortableJS setup (called once after grid is populated) ──────────────────
+function setupSortable() {
+  if (sortInst) sortInst.destroy();
+  sortInst = Sortable.create($('grid'), {
+    animation: 110,
+    ghostClass:  'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    dragClass:   'sortable-drag',
+
+    onStart(evt) {
+      dragState = {
+        items:  [...document.querySelectorAll('.ti')],
+        oldIdx: evt.oldIndex,
+      };
+    },
+
+    onEnd(evt) {
+      if (!dragState) return;
+      const { items, oldIdx } = dragState;
+      const newIdx  = evt.newIndex;
+      // Check shift at the moment of mouse-up — most reliable signal
+      const isSwap  = shiftHeld || (evt.originalEvent?.shiftKey ?? false);
+      dragState = null;
+
+      if (oldIdx === newIdx) { reindex(); return; }
+
+      // Push undo with state captured before the drag
+      undoStack.push(items.map(ti => ({ src: ti._src, fi: ti._fi })));
+      if (undoStack.length > UNDO_MAX) undoStack.shift();
+      $('undoBtn').disabled = false;
+
+      if (isSwap) {
+        // Restore original DOM order, then swap the two target tiles
+        const grid = $('grid');
+        items.forEach(el => grid.appendChild(el));
+        swapEls(items[oldIdx], items[newIdx]);
+      }
+
+      reindex();
+    },
+  });
+}
+
+// ─── decode GIF ───────────────────────────────────────────────────────────────
+async function loadGIF(file, arrangement = null) {
+  const buf = await file.arrayBuffer();
+  let gr;
+  try { gr = new GifReader(new Uint8Array(buf)); }
+  catch (e) { alert('Cannot read GIF: ' + e); return; }
+
+  lastFile = file;
+  nativeW  = gr.width;
+  nativeH  = gr.height;
+  $('disp').value = nativeW;
+  if (!arrangement)
+    $('cols').value = nativeW >= 64 ? '4' : nativeW >= 32 ? '8' : '16';
+
+  const n    = gr.numFrames();
+  const rgba = new Uint8Array(nativeW * nativeH * 4);
+
+  // Decode all frames into allFrames[]
+  allFrames = [];
+  for (let i = 0; i < n; i++) {
+    rgba.fill(0);
+    gr.decodeAndBlitFrameRGBA(i, rgba);
+    const src = document.createElement('canvas');
+    src.width = nativeW; src.height = nativeH;
+    src.getContext('2d').putImageData(
+      new ImageData(new Uint8ClampedArray(rgba), nativeW, nativeH), 0, 0);
+    allFrames.push(src);
+  }
+
+  // Build grid
+  const grid = $('grid');
+  grid.innerHTML = '';
+
+  const order = arrangement ?? allFrames.map((_, i) => i);
+  for (const fi of order) {
+    if (fi < 0 || fi >= allFrames.length) continue;
+    const ti = makeTile(allFrames[fi], fi);
+    grid.appendChild(ti);
+    styleItem(ti);
+  }
+
+  reindex();
+  updateLayout();
+  setupSortable();
+
+  $('expBtn').disabled     = false;
+  $('saveBtn').disabled    = false;
+  $('refBtn').disabled     = false;
+  $('savePngBtn').disabled = false;
+  $('status').textContent =
+    `${order.length} tiles · ${nativeW}×${nativeH} px · ${file.name}`;
+  $('drop').style.display   = 'none';
+  $('scroll').style.display = 'block';
+}
+
+// ─── load PNG (slice into tiles) ─────────────────────────────────────────────
+function loadPNG(file) {
+  const tilePx = Math.max(1, +$('tilepx').value || 32);
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    nativeW = tilePx;
+    nativeH = tilePx;
+    $('disp').value = tilePx;
+    $('tilepx').value = tilePx;
+
+    // Draw full PNG to temp canvas (preserves alpha)
+    const tmp = document.createElement('canvas');
+    tmp.width  = img.width;
+    tmp.height = img.height;
+    const ctx = tmp.getContext('2d');
+    ctx.clearRect(0, 0, tmp.width, tmp.height);
+    ctx.drawImage(img, 0, 0);
+
+    const cols = Math.floor(img.width  / tilePx);
+    const rows = Math.floor(img.height / tilePx);
+
+    allFrames = [];
+    const grid = $('grid');
+    grid.innerHTML = '';
+
+    let fi = 0;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const src = document.createElement('canvas');
+        src.width  = tilePx;
+        src.height = tilePx;
+        // getImageData preserves per-pixel alpha
+        const id = ctx.getImageData(col * tilePx, row * tilePx, tilePx, tilePx);
+        src.getContext('2d').putImageData(id, 0, 0);
+        allFrames.push(src);
+
+        const ti = makeTile(src, fi++);
+        grid.appendChild(ti);
+        styleItem(ti);
+      }
+    }
+
+    reindex();
+    updateLayout();
+    setupSortable();
+
+    lastFile = file;
+    $('expBtn').disabled    = false;
+    $('saveBtn').disabled   = false;
+    $('refBtn').disabled    = false;
+    $('savePngBtn').disabled = false;
+    $('cols').value = cols <= 4 ? '4' : cols <= 8 ? '8' : cols <= 16 ? '16' : '32';
+    $('status').textContent =
+      `${fi} tiles · ${tilePx}×${tilePx} px · ${cols} cols · ${file.name}`;
+    $('drop').style.display   = 'none';
+    $('scroll').style.display = 'block';
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); alert('Cannot load PNG'); };
+  img.src = url;
+}
+
+// ─── save / load state ────────────────────────────────────────────────────────
+function doSave() {
+  const items = [...document.querySelectorAll('.ti')];
+  if (!items.length) return;
+
+  // Encode each tile as base64 PNG for portability
+  const tiles = items.map(ti => ({
+    fi:   ti._fi,
+    data: ti._src.toDataURL('image/png'),
+  }));
+
+  const json = JSON.stringify({ version: 1, nativeW, nativeH, tiles }, null, 0);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  a.download = (lastFile ? lastFile.name.replace(/\.gif$/i,'') : 'tileset') + '_layout.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function doLoadJSON(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    let data;
+    try { data = JSON.parse(e.target.result); }
+    catch { alert('Invalid JSON'); return; }
+
+    nativeW = data.nativeW ?? nativeW;
+    nativeH = data.nativeH ?? nativeH;
+    $('disp').value = nativeW;
+
+    const imgs = data.tiles.map(t =>
+      new Promise(res => {
+        const img = new Image();
+        img.onload = () => {
+          const src = document.createElement('canvas');
+          src.width = nativeW; src.height = nativeH;
+          src.getContext('2d').drawImage(img, 0, 0);
+          res({ src, fi: t.fi ?? -1 });
+        };
+        img.src = t.data;
+      })
+    );
+
+    Promise.all(imgs).then(frames => {
+      pushUndo();
+      const grid = $('grid');
+      grid.innerHTML = '';
+      for (const { src, fi } of frames) {
+        const ti = makeTile(src, fi);
+        grid.appendChild(ti);
+        styleItem(ti);
+      }
+      reindex();
+      updateLayout();
+      setupSortable();
+      $('expBtn').disabled     = false;
+      $('saveBtn').disabled    = false;
+      $('savePngBtn').disabled = false;
+      $('status').textContent =
+        `${frames.length} tiles · ${nativeW}×${nativeH} px · (loaded from ${file.name})`;
+      $('drop').style.display   = 'none';
+      $('scroll').style.display = 'block';
+    });
+  };
+  reader.readAsText(file);
+}
+
+// ─── refresh source file keeping arrangement ─────────────────────────────────
+function doRefresh() {
+  if (!lastFile) return;
+  pushUndo();
+  if (lastFile.name.toLowerCase().endsWith('.png')) {
+    loadPNG(lastFile);   // PNG reload re-slices; arrangement not applicable
+  } else {
+    const arrangement = [...document.querySelectorAll('.ti')].map(ti => ti._fi);
+    loadGIF(lastFile, arrangement);
+  }
+}
+
+// ─── export GIF ──────────────────────────────────────────────────────────────
+function doExport() {
+  if (!window.gifenc) { alert('gifenc library not loaded'); return; }
+  const { GIFEncoder, quantize, applyPalette } = window.gifenc;
+
+  const delay = Math.max(1, Math.round(+$('fms').value / 10));
+  const items = [...document.querySelectorAll('.ti')];
+  if (!items.length) return;
+
+  const enc = GIFEncoder();
+  const empty = new Uint8Array(nativeW * nativeH * 4); // fully transparent
+
+  for (const ti of items) {
+    // Use empty transparent frame if _src is null (shouldn't happen now, but defensive)
+    const data = ti._src
+      ? new Uint8Array(ti._src.getContext('2d').getImageData(0, 0, nativeW, nativeH).data.buffer)
+      : empty;
+    const pal = quantize(data, 256);
+    const idx = applyPalette(data, pal);
+    enc.writeFrame(idx, nativeW, nativeH, { palette: pal, delay });
+  }
+
+  enc.finish();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([enc.bytesView()], { type: 'image/gif' }));
+  a.download = (lastFile ? lastFile.name.replace(/\.gif$/i,'') : 'tileset') + '_export.gif';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ─── export PNG (tiles arranged in grid, full alpha) ─────────────────────────
+function doExportPNG() {
+  const items = [...document.querySelectorAll('.ti')];
+  if (!items.length) return;
+
+  const cols = gcols();
+  const rows = Math.ceil(items.length / cols);
+  const out  = document.createElement('canvas');
+  out.width  = cols * nativeW;
+  out.height = rows * nativeH;
+  const ctx  = out.getContext('2d');
+  // No background fill — output is transparent where tiles are transparent
+
+  items.forEach((ti, i) => {
+    ctx.drawImage(ti._src, (i % cols) * nativeW, Math.floor(i / cols) * nativeH);
+  });
+
+  const a = document.createElement('a');
+  a.href = out.toDataURL('image/png');
+  a.download = (lastFile ? lastFile.name.replace(/\.(gif|png)$/i, '') : 'tileset') + '_export.png';
+  a.click();
+}
+
+// ─── info panel ──────────────────────────────────────────────────────────────
+function toggleInfo() {
+  const p = $('info-panel');
+  p.style.display = p.style.display === 'block' ? 'none' : 'block';
+}
+
+// ─── event wiring ─────────────────────────────────────────────────────────────
+$('fi').addEventListener('change',    e => e.target.files[0] && loadGIF(e.target.files[0]));
+$('pfi').addEventListener('change',   e => e.target.files[0] && loadPNG(e.target.files[0]));
+$('lfi').addEventListener('change',   e => e.target.files[0] && doLoadJSON(e.target.files[0]));
+$('disp').addEventListener('input',   updateLayout);
+$('cols').addEventListener('input',   updateLayout);
+$('alpha').addEventListener('change', updateLayout);
+$('bg').addEventListener('input',     updateLayout);
+$('zoom').addEventListener('input',   applyZoom);
+
+// Ctrl+Z undo
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'z') { e.preventDefault(); doUndo(); }
+});
+
+// GIF drop anywhere
+const dz = $('drop');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  const n = f.name.toLowerCase();
+  if (n.endsWith('.gif')) loadGIF(f);
+  else if (n.endsWith('.png')) loadPNG(f);
+});
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  const n = f.name.toLowerCase();
+  if (n.endsWith('.gif')) loadGIF(f);
+  else if (n.endsWith('.png')) loadPNG(f);
+});
+</script>
+</body>
+</html>
