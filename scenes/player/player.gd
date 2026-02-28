@@ -99,7 +99,7 @@ func _ready() -> void:
 
 # ── Sprite sheet helpers ─────────────────────────────────────────────────
 
-# Return an AtlasTexture for frame N (0-based, row-major, 20 cols, 16×16).
+# Return an AtlasTexture for frame N (0-based, row-major, 10 cols, 32×32).
 func _frame_atlas(n: int) -> AtlasTexture:
 	var col := n % SHEET_COLS
 	var row := n / SHEET_COLS
@@ -148,17 +148,31 @@ func _build_animations() -> void:
 		[35, 36, 9, 10, 69, 71, 75, 61, 75, 71, 69, 73, 77, 73],
 		14.0, false)
 
-	# Cape — walk / idle
-	_add_anim(sf, "cape_walk_left",  [111, 112, 113], 8.0, true)
-	_add_anim(sf, "cape_walk_right", [116, 117, 118], 8.0, true)
-	_add_anim(sf, "cape_idle_left",  [114],            3.0, true)
-	_add_anim(sf, "cape_idle_right", [115],            3.0, true)
+	# Walk up (no cape)
+	_add_anim(sf, "walk_up", [158, 159, 160], 8.0, true)
+
+	# Cape — idle (4 frames each direction)
+	_add_anim(sf, "cape_idle_left",  [111, 112, 113, 114], 6.0, true)
+	_add_anim(sf, "cape_idle_right", [115, 116, 117, 118], 6.0, true)
+
+	# Cape — walk (horizontal, vertical)
+	_add_anim(sf, "cape_walk_left",  [120, 121, 122, 123, 124], 8.0, true)
+	_add_anim(sf, "cape_walk_right", [125, 126, 127, 128, 129], 8.0, true)
+	_add_anim(sf, "cape_walk_up",    [143, 146],                 8.0, true)
+	_add_anim(sf, "cape_walk_down",  [144, 145],                 8.0, true)
 
 	# Cape — jump (going up) and fly (gliding down past peak)
-	_add_anim(sf, "cape_jump_left",  [120, 121, 122, 123, 124], 12.0, false)
-	_add_anim(sf, "cape_jump_right", [125, 126, 127, 128, 129], 12.0, false)
-	_add_anim(sf, "cape_fly_left",   [141, 142],                 8.0, true)
-	_add_anim(sf, "cape_fly_right",  [147, 148],                 8.0, true)
+	_add_anim(sf, "cape_jump_left",  [132, 133, 134, 135], 12.0, false)
+	_add_anim(sf, "cape_jump_right", [136, 137, 138, 139], 12.0, false)
+	_add_anim(sf, "cape_fly_left",   [141, 142],            8.0, true)
+	_add_anim(sf, "cape_fly_right",  [147, 148],            8.0, true)
+
+	# Cape — toxic (looping hazard effect)
+	_add_anim(sf, "cape_toxic_left",  [154, 156], 6.0, true)
+	_add_anim(sf, "cape_toxic_right", [155, 157], 6.0, true)
+
+	# Cheer — plays once after boss defeat
+	_add_anim(sf, "cheer", [170, 171, 172, 173, 174], 8.0, false)
 
 	# Hit / death
 	_add_anim(sf, "hit",   [8, 9],   10.0, false)
@@ -277,9 +291,17 @@ func _update_animation(input_dir: Vector2) -> void:
 
 	elif input_dir.length() > 0.1:
 		if _cape_active:
-			desired = "cape_walk_left" if _h_facing == "left" else "cape_walk_right"
+			# Use vertical cape walk when moving purely up/down (no horizontal)
+			if absf(input_dir.x) <= 0.1:
+				desired = "cape_walk_up" if input_dir.y < 0 else "cape_walk_down"
+			else:
+				desired = "cape_walk_left" if _h_facing == "left" else "cape_walk_right"
 		else:
-			desired = "walk_left" if _h_facing == "left" else "walk_right"
+			# Use walk_up when moving purely upward, otherwise horizontal walk
+			if absf(input_dir.x) <= 0.1 and input_dir.y < 0:
+				desired = "walk_up"
+			else:
+				desired = "walk_left" if _h_facing == "left" else "walk_right"
 
 	else:
 		# Idle: use full 4-direction facing
@@ -560,6 +582,11 @@ func heal(amount: int = 1) -> void:
 	var tw := create_tween()
 	tw.tween_property(anim_sprite, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.3)
 	_powerup_bounce()
+
+
+func play_cheer() -> void:
+	if not _is_dead:
+		anim_sprite.play("cheer")
 
 
 func take_damage(amount: int = 1) -> void:

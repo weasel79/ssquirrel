@@ -14,7 +14,7 @@ signal health_changed(current: int, maximum: int)
 
 const SPEED            := 60.0
 const DASH_SPEED       := 220.0
-const MAX_HEALTH       := 1500
+const MAX_HEALTH       := 2250
 const SCORE_VALUE      := 300
 const DAMAGE_COOLDOWN  := 0.8
 const CONTACT_DAMAGE   := 2
@@ -23,7 +23,7 @@ const SPRITE_SCALE     := 2.0   # 64×80 → 128×160 display
 const PANTS_THRESHOLD  := 0.35  # HP fraction that triggers pants mode
 
 const FIGHT_INTERVAL  := 3.0   # seconds between fight attacks
-const FINGER_INTERVAL := 8.0   # seconds between finger charges
+const FINGER_INTERVAL := 6.4   # seconds between finger charges (25% more frequent)
 const DASH_DURATION   := 0.5   # length of post-finger dash
 
 var health: int = MAX_HEALTH
