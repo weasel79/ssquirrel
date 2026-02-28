@@ -5,7 +5,8 @@ Run from ssquirel/ directory.
 """
 import base64, os
 
-DIR = 'art/tiles/terrain/'
+_HERE = os.path.dirname(os.path.abspath(__file__))
+DIR = os.path.normpath(os.path.join(_HERE, '..')) + os.sep
 
 ALL = [
     'grass','grass2','sand','water','gravel','dark','tile',
@@ -753,7 +754,7 @@ html = (html
     .replace('<<<SDATA>>>', sdata_js)
     .replace('<<<GROUPS>>>', groups_js))
 
-out = DIR + 'util/terrain_mapgen.html'
+out = os.path.join(_HERE, 'terrain_mapgen.html')
 with open(out, 'w', encoding='utf-8') as f:
     f.write(html)
 

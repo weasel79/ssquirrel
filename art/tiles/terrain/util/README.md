@@ -1,7 +1,7 @@
 # Terrain Utility Tools
 
 Scripts and tools for generating and editing terrain tiles for the SSQuirrel project.
-All scripts are run from the **project root** (`ssquirel/`).
+All scripts can be run from **any directory** — they use `__file__`-relative paths.
 
 ---
 
@@ -21,9 +21,9 @@ Interactive terrain map generator — open directly in any browser (no server ne
 
 **Rebuild** (required after editing `build_mapgen.py`):
 ```
-python build_mapgen.py
+python art/tiles/terrain/util/build_mapgen.py
 ```
-This re-embeds all tileset PNGs as base64 and rewrites `terrain_mapgen.html`.
+This re-embeds all tileset PNGs as base64 and rewrites `terrain_mapgen.html` in the same folder.
 
 ---
 
@@ -52,7 +52,7 @@ Missing PNGs are silently skipped.
 
 ## extract_terrain_tiles.py
 
-Extracts individual autotile sets from `terrain_atlas.gif` (1012 frames, 32×32 px each)
+Extracts individual autotile sets from `terrain_atlas.gif` (in `art/tiles/terrain/`, 1012 frames, 32×32 px each)
 and saves them as 96×192 px PNG tilesets to `art/tiles/terrain/`.
 
 Each tileset is a 3×6 grid of 32×32 tiles (see `terraintileset.md` for the layout).
@@ -60,19 +60,19 @@ Frame offsets per tileset are defined in `terrain_atlas.txt`.
 
 **Usage**
 ```
-python extract_terrain_tiles.py
+python art/tiles/terrain/util/extract_terrain_tiles.py
 ```
 
 ---
 
 ## generate_terrain_preview.py
 
-Generates `terrain_preview.png` — a small test map rendered from the extracted tile PNGs.
+Generates `terrain_preview.png` (saved to `art/tiles/terrain/`) — a small test map rendered from the extracted tile PNGs.
 Used to visually verify tile extractions and inner corner logic.
 
 **Usage**
 ```
-python generate_terrain_preview.py
+python art/tiles/terrain/util/generate_terrain_preview.py
 ```
 
 ---

@@ -12,8 +12,8 @@ Run from the project root:
 from PIL import Image
 import os, random
 
-TILE_DIR = os.path.join(os.path.dirname(__file__), "art", "tiles", "wfc")
-OUT_PATH = os.path.join(os.path.dirname(__file__), "terrain_preview.png")
+TILE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "wfc")
+OUT_PATH = os.path.join(os.path.dirname(__file__), "..", "terrain_preview.png")
 TILE_SIZE = 32
 COLS, ROWS = 16, 8
 

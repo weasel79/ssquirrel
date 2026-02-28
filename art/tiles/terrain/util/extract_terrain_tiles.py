@@ -11,8 +11,8 @@ Run from the project root:
 from PIL import Image, ImageSequence
 import json, os
 
-GIF_PATH = os.path.join(os.path.dirname(__file__), "terrain_atlas.gif")
-OUT_DIR  = os.path.join(os.path.dirname(__file__), "art", "tiles", "wfc")
+GIF_PATH = os.path.join(os.path.dirname(__file__), "..", "terrain_atlas.gif")
+OUT_DIR  = os.path.join(os.path.dirname(__file__), "..", "..", "wfc")
 
 # Set True to downscale to 16x16 (matches current TILE_SIZE=16 in world_generator.gd)
 RESIZE = False
