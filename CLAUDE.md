@@ -175,6 +175,57 @@ Extended terrain map generator (`build_mapgen.py` → `art/tiles/terrain/util/te
 
 ---
 
+## Session — 2026-02-28 (cont.5) — Terrain tileset integration into world_generator.gd + web deploy
+
+### Summary
+Replaced old WFC tile system with new terrain tileset system in `world_generator.gd`.
+Full 8-directional autotile, two-pass compositing, wall overlay rendering, debug panel.
+Git committed + web export to GitHub Pages.
+
+### Architecture (now current)
+- `TILE_SIZE = 32` (was 16 — fixed)
+- `CHUNK_TILES = 20`, `CHUNK_PX = 640`
+- `MAIN_TERRAIN_POOL`: grass, grass2, sand, gravel, tile, dark, dirt_bright, dirt_dark, dirt3
+- `REQUIRED_HAZARDS`: water, lava, toxic
+- `WALL_OVERLAY_POOL`: abyss, abyss2, bush, hole_t, tile
+- Per-level state: `_main_terrain`, `_wall_terrain`, `_active_terrains`, `_terrain_slots`, `_terrain_ranges`
+- `_load_terrain_tileset(name)`: loads 96×192 PNG → 18 slot Images (solid, alt1-3, wall_top/bottom/left/right, corner_tl/tr/bl/br, inner_tl/tr/bl/br, small, small2)
+- No WFC, no gas overlays, no old fill arrays
+
+### Rendering pipeline
+- **Pass 1**: fill ALL cells (including wall cells) with main terrain `solid` (opaque RGB8 base)
+- **Pass 2 — wall cells**: blend main alt/solid fill → blend wall overlay autotile → add collision body
+- **Pass 2 — main terrain cells**: blend solid/alt fill only (no edge/corner tiles)
+- **Pass 2 — non-main terrain cells**: full 8-directional autotile (edge, corner, inner corner)
+
+### Key technical findings
+- `blend_rect` not `blit_rect`: blend_rect composites alpha; blit_rect copies raw pixels including alpha channel
+- `chunk_img.convert(Image.FORMAT_RGB8)` before `ImageTexture.create_from_image()`: collapses RGBA8 → opaque RGB8, eliminates residual transparent pixels in the sprite
+- Wall overlay pass: main terrain alt/solid drawn first (opaque ground), then wall overlay blended on top — transparent areas of overlay tiles show main terrain underneath, not void
+- Debug CanvasLayer (layer 100): screen-space panel, right side, shows solid tile thumbnail + terrain name for all active terrains; main = `*`, wall = `(wall)`
+
+### Git / web deploy
+- Godot headless export: `Godot_v4.6.1-stable_win64.exe --headless --path <dir> --export-release "Web"`
+- GitHub Pages at `https://weasel79.github.io/ssquirrel/` (master root, COOP/COEP via service worker)
+- `.gitignore` updated: `*.exe`/`*.zip` excluded; web export files (`SSQuirrel.html/.pck/.js/.wasm` etc.) explicitly included
+- 52 MB `.pck` accepted by GitHub (under 100 MB hard limit)
+
+### Issues
+- Wall autotile visual correctness not confirmed by user yet (inner corners may need tuning)
+
+### To-do
+- [ ] User test: verify wall/corner autotile looks correct in-game
+- [ ] Consider hazard tile effects on player (water slow, lava/toxic damage)
+- [ ] Consider player spawn forced to main terrain
+- [ ] Fix gifenc Export GIF in tileset_editor.html (still unresolved)
+
+### Ideas
+- Different wall overlays per biome (e.g. ice biome gets snow/crystal overlays)
+- Animated tiles (lava shimmer, water ripple) via AnimatedSprite2D or shader
+- Minimap overlay using chunk tile_types array
+
+---
+
 ## Session — 2026-02-28 (cont.4) — Terrain file reorganisation
 
 ### Summary
