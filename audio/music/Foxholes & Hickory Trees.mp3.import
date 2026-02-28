@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://c8d0uuokpxu7"
+path="res://.godot/imported/Foxholes & Hickory Trees.mp3-a0f782a97e6730865218f22b8c21b269.mp3str"
+
+[deps]
+
+source_file="res://audio/music/Foxholes & Hickory Trees.mp3"
+dest_files=["res://.godot/imported/Foxholes & Hickory Trees.mp3-a0f782a97e6730865218f22b8c21b269.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

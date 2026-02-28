@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://be3ws6hjvh2am"
+path="res://.godot/imported/Pixel Palace in 8 Bits.mp3-d38aa0b7c18d4826ad4bd02611bae7f6.mp3str"
+
+[deps]
+
+source_file="res://audio/music/Pixel Palace in 8 Bits.mp3"
+dest_files=["res://.godot/imported/Pixel Palace in 8 Bits.mp3-d38aa0b7c18d4826ad4bd02611bae7f6.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

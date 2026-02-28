@@ -2,17 +2,30 @@ extends CharacterBody2D
 # Player character — top-down movement with stacking weapon mods.
 # Each mod can be leveled 1→2→3 by collecting the same pickup again.
 # All active mods apply simultaneously when shooting.
-# Directional animated sprite (down/side/up) with idle, run, hit, death.
+# Mario animated sprite with idle, run, hit, death + flip_h for direction.
 
 signal died
 signal health_changed(new_health: int)
 signal mods_changed(mods: Dictionary)
+signal buff_changed(buff_name: String, active: bool, duration: float)
 
 const SPEED := 120.0
 const MAX_HEALTH := 5
 const INVINCIBLE_DURATION := 0.8
 const BASE_SHOOT_INTERVAL := 0.40
 const MAX_MOD_LEVEL := 3
+
+# Hazard constants
+const ICE_FRICTION := 0.92        # velocity retention per frame on ice (1.0 = no friction)
+const POISON_DPS := 0.8           # damage per second on poison
+const ACID_DPS := 1.5             # damage per second on acid
+const LAVA_DPS := 2.5             # damage per second on lava
+const HAZARD_DMG_INTERVAL := 0.4  # seconds between hazard damage ticks
+
+# Jump constants
+const JUMP_DURATION := 0.4        # total jump arc time
+const JUMP_HEIGHT := 20.0         # max pixel offset at peak
+const JUMP_COOLDOWN := 0.0        # no cooldown — bunny hop allowed
 
 # Active weapon mods — 0 = not collected, 1-3 = level
 var mods := {
@@ -29,27 +42,32 @@ var health: int = MAX_HEALTH
 var invincible := false
 var _is_dead := false
 
+# Hazard state
+var _on_ice := false
+var _ice_velocity := Vector2.ZERO   # momentum carried on ice
+var _hazard_dmg_timer := 0.0        # accumulates delta for DOT ticks
+var _current_tile_type := 0          # cached tile type under player
+
 # Orbit system state
 var orbit_bullets: Array[Node2D] = []
 var orbit_angle := 0.0
 
-# Animation state
-var _last_direction := "down"  # "down", "side", "up"
+# Temporary buffs — timers count down each frame
+var buff_speed_timer := 0.0       # gem_green: 1.5x speed
+var buff_damage_timer := 0.0      # scroll_fire: 2x damage
+var buff_shield_timer := 0.0      # gem_purple: invincibility
 
-# Preloaded sprite sheet textures — 4 animations × 3 directions = 12
+# Jump state
+var _jumping := false
+var _jump_timer := 0.0
+var _jump_cooldown_timer := 0.0
+
+# Preloaded Mario sprite strip textures
 var _tex := {
-	"idle_down":  preload("res://art/sprites/player/Idle_Down.png"),
-	"idle_side":  preload("res://art/sprites/player/Idle_Side.png"),
-	"idle_up":    preload("res://art/sprites/player/Idle_Up.png"),
-	"run_down":   preload("res://art/sprites/player/Run_Down.png"),
-	"run_side":   preload("res://art/sprites/player/Run_Side.png"),
-	"run_up":     preload("res://art/sprites/player/Run_Up.png"),
-	"hit_down":   preload("res://art/sprites/player/Hit_Down.png"),
-	"hit_side":   preload("res://art/sprites/player/Hit_Side.png"),
-	"hit_up":     preload("res://art/sprites/player/Hit_Up.png"),
-	"death_down": preload("res://art/sprites/player/Death_Down.png"),
-	"death_side": preload("res://art/sprites/player/Death_Side.png"),
-	"death_up":   preload("res://art/sprites/player/Death_Up.png"),
+	"idle":  preload("res://art/sprites/player/mario_idle.png"),
+	"run":   preload("res://art/sprites/player/mario_run.png"),
+	"hit":   preload("res://art/sprites/player/mario_hit.png"),
+	"death": preload("res://art/sprites/player/mario_death.png"),
 }
 
 @onready var shoot_timer: Timer = $ShootTimer
@@ -63,45 +81,41 @@ func _ready() -> void:
 	shoot_timer.timeout.connect(_on_shoot_timer_timeout)
 	_recalculate_fire_rate()
 	_build_animations()
-	anim_sprite.play("idle_down")
+	anim_sprite.play("idle")
 
 
-# Build 12 directional animations from sprite sheets at runtime
+# Build 4 Mario animations from sprite strips at runtime
 func _build_animations() -> void:
-	var defs := {}
-	for dir_name in ["down", "side", "up"]:
-		# Idle: 4 frames, 64×64
-		defs["idle_" + dir_name] = {
-			"texture": _tex["idle_" + dir_name],
+	var defs := {
+		"idle": {
+			"texture": _tex["idle"],
 			"frame_size": Vector2i(64, 64),
-			"frame_count": 4,
-			"fps": 6.0,
+			"frame_count": 2,
+			"fps": 4.0,
 			"loop": true,
-		}
-		# Run: 6 frames, 64×64
-		defs["run_" + dir_name] = {
-			"texture": _tex["run_" + dir_name],
-			"frame_size": Vector2i(64, 64),
-			"frame_count": 6,
-			"fps": 10.0,
-			"loop": true,
-		}
-		# Hit: 4 frames, 64×64
-		defs["hit_" + dir_name] = {
-			"texture": _tex["hit_" + dir_name],
-			"frame_size": Vector2i(64, 64),
-			"frame_count": 4,
-			"fps": 10.0,
-			"loop": false,
-		}
-		# Death: 8 frames, 64×64
-		defs["death_" + dir_name] = {
-			"texture": _tex["death_" + dir_name],
+		},
+		"run": {
+			"texture": _tex["run"],
 			"frame_size": Vector2i(64, 64),
 			"frame_count": 8,
+			"fps": 12.0,
+			"loop": true,
+		},
+		"hit": {
+			"texture": _tex["hit"],
+			"frame_size": Vector2i(64, 64),
+			"frame_count": 4,
 			"fps": 10.0,
 			"loop": false,
-		}
+		},
+		"death": {
+			"texture": _tex["death"],
+			"frame_size": Vector2i(64, 64),
+			"frame_count": 6,
+			"fps": 8.0,
+			"loop": false,
+		},
+	}
 	anim_sprite.sprite_frames = SpriteHelper.build_sprite_frames(defs)
 
 
@@ -109,42 +123,57 @@ func _physics_process(delta: float) -> void:
 	if _is_dead:
 		return
 
-	# 8-directional movement
+	# Query tile type under player from WorldGenerator
+	var world_gen := get_parent().get_node_or_null("WorldGenerator")
+	if world_gen and world_gen.has_method("get_tile_type"):
+		_current_tile_type = world_gen.get_tile_type(global_position)
+	else:
+		_current_tile_type = 0
+
+	# 8-directional movement with hazard modifiers
 	var input_dir := Vector2(
 		Input.get_axis("move_left", "move_right"),
 		Input.get_axis("move_up", "move_down")
 	)
-	velocity = input_dir.normalized() * SPEED
+	var move_speed := SPEED
+	if buff_speed_timer > 0.0:
+		move_speed *= 1.5
+
+	# Ice: slippery momentum — input blends with carried velocity
+	_on_ice = (_current_tile_type == 2)  # Tile.ICE
+	if _on_ice:
+		var desired_vel := input_dir.normalized() * move_speed
+		_ice_velocity = _ice_velocity * ICE_FRICTION + desired_vel * (1.0 - ICE_FRICTION)
+		velocity = _ice_velocity
+	else:
+		# Poison slows movement by 30%
+		if _current_tile_type == 3:  # Tile.POISON
+			move_speed *= 0.7
+		velocity = input_dir.normalized() * move_speed
+		_ice_velocity = velocity  # reset ice momentum to current velocity
+
 	move_and_slide()
 
-	# Keep player inside viewport
-	var vp := get_viewport_rect().size
-	global_position = global_position.clamp(Vector2(12, 12), vp - Vector2(12, 12))
+	# Hazard damage over time
+	_process_hazard_damage(delta)
 
-	# Flash while invincible
+	# Hazard visual tint on sprite (skip while airborne)
+	if not _jumping:
+		_apply_hazard_tint()
+
+	# Flash while invincible (overrides hazard tint alpha)
 	if invincible:
 		anim_sprite.modulate.a = 0.4 if fmod(Time.get_ticks_msec() / 100.0, 2.0) < 1.0 else 1.0
-	else:
-		anim_sprite.modulate.a = 1.0
 
-	# Update facing direction based on movement
-	if input_dir.length() > 0.1:
-		if absf(input_dir.x) > absf(input_dir.y):
-			_last_direction = "side"
-			anim_sprite.flip_h = input_dir.x < 0
-		elif input_dir.y < 0:
-			_last_direction = "up"
-		else:
-			_last_direction = "down"
+	# Flip sprite based on horizontal movement
+	if input_dir.length() > 0.1 and absf(input_dir.x) > 0.1:
+		anim_sprite.flip_h = input_dir.x < 0
 
-	# Play appropriate directional animation (skip if hit/death is playing)
-	var cur := anim_sprite.animation
-	if not cur.begins_with("hit_") and not cur.begins_with("death_"):
-		var desired: String
-		if input_dir.length() > 0.1:
-			desired = "run_" + _last_direction
-		else:
-			desired = "idle_" + _last_direction
+	# Play run/idle animation (skip only while hit/death is actively playing)
+	var cur: String = anim_sprite.animation
+	var blocked: bool = cur == "death" or (cur == "hit" and anim_sprite.is_playing())
+	if not blocked:
+		var desired: String = "run" if input_dir.length() > 0.1 else "idle"
 		if anim_sprite.animation != desired:
 			anim_sprite.play(desired)
 
@@ -152,6 +181,133 @@ func _physics_process(delta: float) -> void:
 	if mods["orbit"] > 0:
 		orbit_angle += delta * 3.0
 		_update_orbit_bullets()
+
+	# Tick down temporary buffs
+	_tick_buffs(delta)
+
+	# Jump input and arc
+	_process_jump(delta)
+
+
+# ── Jump ────────────────────────────────────────────────────────────────
+
+func _process_jump(delta: float) -> void:
+	_jump_cooldown_timer = maxf(_jump_cooldown_timer - delta, 0.0)
+
+	# Start jump on spacebar
+	if Input.is_action_just_pressed("jump") and not _jumping and _jump_cooldown_timer <= 0.0:
+		_jumping = true
+		_jump_timer = 0.0
+		SoundManager.play_jump()
+
+	if _jumping:
+		_jump_timer += delta
+		var t := _jump_timer / JUMP_DURATION
+		if t >= 1.0:
+			# Land
+			_jumping = false
+			_jump_cooldown_timer = JUMP_COOLDOWN
+			anim_sprite.position.y = 0.0
+			anim_sprite.scale = Vector2(1.0, 1.0)
+		else:
+			# Parabolic arc: peak at t=0.5
+			var height := 4.0 * JUMP_HEIGHT * t * (1.0 - t)
+			anim_sprite.position.y = -height
+			# Slight squash-stretch
+			var stretch := 1.0 + 0.15 * sin(t * PI)
+			anim_sprite.scale = Vector2(1.0 / stretch, stretch)
+
+
+func is_jumping() -> bool:
+	return _jumping
+
+
+# ── Buffs ───────────────────────────────────────────────────────────────
+
+func _tick_buffs(delta: float) -> void:
+	if buff_speed_timer > 0.0:
+		buff_speed_timer -= delta
+		if buff_speed_timer <= 0.0:
+			buff_speed_timer = 0.0
+			buff_changed.emit("speed", false, 0.0)
+	if buff_damage_timer > 0.0:
+		buff_damage_timer -= delta
+		if buff_damage_timer <= 0.0:
+			buff_damage_timer = 0.0
+			buff_changed.emit("damage", false, 0.0)
+	if buff_shield_timer > 0.0:
+		buff_shield_timer -= delta
+		if buff_shield_timer <= 0.0:
+			buff_shield_timer = 0.0
+			invincible = false
+			buff_changed.emit("shield", false, 0.0)
+
+
+func apply_buff(buff_name: String, duration: float) -> void:
+	match buff_name:
+		"speed":
+			buff_speed_timer = duration
+			buff_changed.emit("speed", true, duration)
+		"damage":
+			buff_damage_timer = duration
+			buff_changed.emit("damage", true, duration)
+		"shield":
+			buff_shield_timer = duration
+			invincible = true
+			buff_changed.emit("shield", true, duration)
+	_powerup_bounce()
+
+
+# Asterix-style double bounce on powerup consumption
+var _bounce_tween: Tween = null
+
+func _powerup_bounce() -> void:
+	if _bounce_tween and _bounce_tween.is_valid():
+		_bounce_tween.kill()
+	anim_sprite.scale = Vector2(1.0, 1.0)
+	_bounce_tween = create_tween()
+	# First bounce: scale up to 1.5x then back
+	_bounce_tween.tween_property(anim_sprite, "scale", Vector2(1.5, 1.5), 0.1)
+	_bounce_tween.tween_property(anim_sprite, "scale", Vector2(1.0, 1.0), 0.1)
+	# Second bounce: scale up to 1.5x then back
+	_bounce_tween.tween_property(anim_sprite, "scale", Vector2(1.5, 1.5), 0.1)
+	_bounce_tween.tween_property(anim_sprite, "scale", Vector2(1.0, 1.0), 0.1)
+
+
+func has_damage_buff() -> bool:
+	return buff_damage_timer > 0.0
+
+
+# ── Hazard effects ───────────────────────────────────────────────────────
+
+func _process_hazard_damage(delta: float) -> void:
+	var dps := 0.0
+	match _current_tile_type:
+		3: dps = POISON_DPS   # Tile.POISON
+		4: dps = ACID_DPS     # Tile.ACID
+		5: dps = LAVA_DPS     # Tile.LAVA
+	if dps <= 0.0:
+		_hazard_dmg_timer = 0.0
+		return
+	_hazard_dmg_timer += delta
+	if _hazard_dmg_timer >= HAZARD_DMG_INTERVAL:
+		_hazard_dmg_timer -= HAZARD_DMG_INTERVAL
+		var tick_damage: int = maxi(1, roundi(dps * HAZARD_DMG_INTERVAL))
+		take_damage(tick_damage)
+
+
+func _apply_hazard_tint() -> void:
+	match _current_tile_type:
+		2:  # ICE — frosty blue tint
+			anim_sprite.modulate = Color(0.7, 0.85, 1.0, 1.0)
+		3:  # POISON — sickly green
+			anim_sprite.modulate = Color(0.6, 1.0, 0.5, 1.0)
+		4:  # ACID — yellow-green flash
+			anim_sprite.modulate = Color(0.8, 1.0, 0.3, 1.0)
+		5:  # LAVA — red-orange heat
+			anim_sprite.modulate = Color(1.0, 0.5, 0.3, 1.0)
+		_:  # Normal — reset
+			anim_sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
 
 
 # ── Targeting ────────────────────────────────────────────────────────────
@@ -204,6 +360,10 @@ func _on_shoot_timer_timeout() -> void:
 		bullet_type = "rapid"
 	if mods["spread"] > 0 and bullet_type == "normal":
 		bullet_type = "spread"
+
+	# Fire scroll buff: double damage
+	if buff_damage_timer > 0.0:
+		extra_damage += 2
 
 	# Forward shot(s)
 	var forward_count := 1
@@ -284,6 +444,7 @@ func add_mod(mod_name: String) -> void:
 		mods[mod_name] += 1
 		_recalculate_fire_rate()
 		mods_changed.emit(mods)
+		_powerup_bounce()
 
 		# Immediately rebuild orbits if orbit was just picked up
 		if mod_name == "orbit":
@@ -302,6 +463,18 @@ func _recalculate_fire_rate() -> void:
 
 # ── Damage ───────────────────────────────────────────────────────────────
 
+func heal(amount: int = 1) -> void:
+	if _is_dead:
+		return
+	health = mini(health + amount, MAX_HEALTH)
+	health_changed.emit(health)
+	# Brief green flash
+	anim_sprite.modulate = Color(0.5, 1.0, 0.5, 1.0)
+	var tw := create_tween()
+	tw.tween_property(anim_sprite, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.3)
+	_powerup_bounce()
+
+
 func take_damage(amount: int = 1) -> void:
 	if invincible or _is_dead:
 		return
@@ -311,12 +484,15 @@ func take_damage(amount: int = 1) -> void:
 		_is_dead = true
 		shoot_timer.stop()
 		# Play death animation, stay visible for game over screen
-		anim_sprite.play("death_" + _last_direction)
+		anim_sprite.play("death")
 		died.emit()
 		return
 	# Play hit sound and animation briefly, then resume normal
 	SoundManager.play_player_hit()
-	anim_sprite.play("hit_" + _last_direction)
+	anim_sprite.play("hit")
 	invincible = true
 	await get_tree().create_timer(INVINCIBLE_DURATION).timeout
 	invincible = false
+	# Force back to idle so animation never stays stuck on finished "hit"
+	if not _is_dead and anim_sprite.animation == "hit":
+		anim_sprite.play("idle")

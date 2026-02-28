@@ -5,31 +5,66 @@ extends CanvasLayer
 @onready var score_label: Label = $ScoreLabel
 @onready var hearts_container: HBoxContainer = $HeartsContainer
 @onready var game_over_label: Label = $GameOverLabel
-@onready var mods_label: Label = $ModsLabel
+@onready var mods_container: HBoxContainer = $ModsContainer
+@onready var mods_label: Label = $ModsContainer/ModsLabel
 @onready var dps_label: Label = $DpsLabel
 @onready var stats_panel: Panel = $StatsPanel
 @onready var stats_text: RichTextLabel = $StatsPanel/StatsText
+@onready var boss_label: Label = $BossLabel
+@onready var boss_hp_bar: ProgressBar = $BossHPBar
+@onready var buff_label: Label = $BuffLabel
 
 var heart_texture: Texture2D = preload("res://art/heart.png")
 
-var mod_display := {
-	"spread":  { "name": "SPREAD",  "color": "green"  },
-	"rapid":   { "name": "RAPID",   "color": "orange" },
-	"pierce":  { "name": "PIERCE",  "color": "cyan"   },
-	"bigshot": { "name": "BIG",     "color": "red"    },
-	"homing":  { "name": "HOMING",  "color": "magenta"},
-	"orbit":   { "name": "ORBIT",   "color": "aqua"   },
-	"rear":    { "name": "REAR",    "color": "yellow" },
+var mod_icons := {
+	"spread":  preload("res://art/upgrade_spread.png"),
+	"rapid":   preload("res://art/upgrade_rapid.png"),
+	"pierce":  preload("res://art/upgrade_pierce.png"),
+	"bigshot": preload("res://art/upgrade_bigshot.png"),
+	"homing":  preload("res://art/upgrade_homing.png"),
+	"orbit":   preload("res://art/upgrade_orbit.png"),
+	"rear":    preload("res://art/upgrade_rear.png"),
 }
 
+var mod_display := {
+	"spread":  { "name": "SPREAD",  "color": Color(0.3, 1.0, 0.3)  },
+	"rapid":   { "name": "RAPID",   "color": Color(1.0, 0.6, 0.2)  },
+	"pierce":  { "name": "PIERCE",  "color": Color(0.3, 1.0, 1.0)  },
+	"bigshot": { "name": "BIG",     "color": Color(1.0, 0.3, 0.3)  },
+	"homing":  { "name": "HOMING",  "color": Color(1.0, 0.3, 1.0)  },
+	"orbit":   { "name": "ORBIT",   "color": Color(0.3, 1.0, 0.9)  },
+	"rear":    { "name": "REAR",    "color": Color(1.0, 1.0, 0.3)  },
+}
+
+
+var _active_buffs := {}  # { "speed": remaining_seconds, ... }
+
+# Powerup popup — created once, reused for each pickup
+var _powerup_popup: Label = null
+var _powerup_tween: Tween = null
+
+var powerup_display := {
+	"life_pot":        { "text": "+1 HP",         "color": Color(1.0, 0.3, 0.3) },
+	"nut":             { "text": "+1 HP",         "color": Color(1.0, 0.3, 0.3) },
+	"scroll_fire":     { "text": "FIRE POWER",    "color": Color(1.0, 0.5, 0.1) },
+	"scroll_ice":      { "text": "FREEZE ALL",    "color": Color(0.4, 0.7, 1.0) },
+	"scroll_thunder":  { "text": "THUNDER",       "color": Color(1.0, 1.0, 0.3) },
+	"gem_red":         { "text": "+50 SCORE",     "color": Color(1.0, 0.2, 0.2) },
+	"gem_green":       { "text": "SPEED BOOST",   "color": Color(0.3, 1.0, 0.4) },
+	"gem_purple":      { "text": "SHIELD",        "color": Color(0.7, 0.3, 1.0) },
+}
 
 func _ready() -> void:
 	game_over_label.visible = false
 	stats_panel.visible = false
+	boss_label.visible = false
+	boss_hp_bar.visible = false
+	buff_label.visible = false
 	update_score(0)
+	_create_powerup_popup()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# Update live DPS display
 	dps_label.text = "DPS: %.1f" % Stats.get_dps()
 
@@ -37,6 +72,9 @@ func _process(_delta: float) -> void:
 	stats_panel.visible = Input.is_action_pressed("show_stats")
 	if stats_panel.visible:
 		_refresh_stats_panel()
+
+	# Update buff timers display
+	_update_buff_display(delta)
 
 
 func update_score(value: int) -> void:
@@ -55,21 +93,61 @@ func update_health(value: int) -> void:
 		hearts_container.add_child(heart)
 
 
-# Build the mods status line from the player's mod dictionary
+# Build weapon icon stacks from the player's mod dictionary
 func update_mods(mods: Dictionary) -> void:
-	var parts: Array[String] = []
+	# Clear previous icons (keep ModsLabel child)
+	for child in mods_container.get_children():
+		if child != mods_label:
+			child.queue_free()
+
+	var has_any := false
 	for mod_name: String in mods:
 		var level: int = mods[mod_name]
 		if level <= 0:
 			continue
-		var info: Dictionary = mod_display.get(mod_name, { "name": mod_name.to_upper(), "color": "white" })
-		var stars := "I".repeat(level)
-		parts.append("%s %s" % [info["name"], stars])
+		has_any = true
+		mods_container.add_child(_build_mod_icon(mod_name, level))
 
-	if parts.is_empty():
-		mods_label.text = "PEA SHOOTER"
-	else:
-		mods_label.text = "  ".join(parts)
+	mods_label.visible = not has_any
+
+
+func _build_mod_icon(mod_name: String, level: int) -> Control:
+	var info: Dictionary = mod_display.get(mod_name, { "name": mod_name.to_upper(), "color": Color.WHITE })
+	var col: Color = info["color"]
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_END
+	vbox.add_theme_constant_override("separation", 1)
+
+	# Icon
+	var icon := TextureRect.new()
+	icon.texture = mod_icons.get(mod_name)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.custom_minimum_size = Vector2(28, 28)
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.modulate = col
+	vbox.add_child(icon)
+
+	# Name + level number label
+	var name_label := Label.new()
+	name_label.text = "%s %d" % [info["name"], level]
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.add_theme_font_size_override("font_size", 8)
+	name_label.add_theme_color_override("font_color", col)
+	vbox.add_child(name_label)
+
+	# Level pips
+	var pips := HBoxContainer.new()
+	pips.alignment = BoxContainer.ALIGNMENT_CENTER
+	pips.add_theme_constant_override("separation", 1)
+	for i in range(3):
+		var pip := ColorRect.new()
+		pip.custom_minimum_size = Vector2(6, 3)
+		pip.color = col if i < level else Color(0.3, 0.3, 0.3, 0.5)
+		pips.add_child(pip)
+	vbox.add_child(pips)
+
+	return vbox
 
 
 func show_game_over(final_score: int = 0, kills: int = 0) -> void:
@@ -120,3 +198,149 @@ func _refresh_stats_panel() -> void:
 		lines.append(s.event_log[i])
 
 	stats_text.text = "\n".join(lines)
+
+
+# ── Buff display ──────────────────────────────────────────────────────
+
+var _buff_display := {
+	"speed":  { "label": "SPEED",  "color": Color(0.3, 1.0, 0.4) },
+	"damage": { "label": "FIRE",   "color": Color(1.0, 0.5, 0.2) },
+	"shield": { "label": "SHIELD", "color": Color(0.7, 0.3, 1.0) },
+}
+
+func on_buff_changed(buff_name: String, active: bool, duration: float) -> void:
+	if active:
+		_active_buffs[buff_name] = duration
+	else:
+		_active_buffs.erase(buff_name)
+
+
+func _update_buff_display(delta: float) -> void:
+	# Tick down timers
+	var to_remove: Array[String] = []
+	for buff_name: String in _active_buffs:
+		_active_buffs[buff_name] -= delta
+		if _active_buffs[buff_name] <= 0.0:
+			to_remove.append(buff_name)
+	for bn: String in to_remove:
+		_active_buffs.erase(bn)
+
+	if _active_buffs.is_empty():
+		buff_label.visible = false
+		return
+
+	buff_label.visible = true
+	var parts: Array[String] = []
+	for buff_name: String in _active_buffs:
+		var info: Dictionary = _buff_display.get(buff_name, { "label": buff_name.to_upper(), "color": Color.WHITE })
+		var secs: float = _active_buffs[buff_name]
+		parts.append("%s %.0fs" % [info["label"], secs])
+	buff_label.text = " | ".join(parts)
+
+
+# ── Boss announcements ─────────────────────────────────────────────────
+
+func show_boss_fight() -> void:
+	boss_label.text = "BOSS FIGHT"
+	boss_label.modulate = Color(1, 0.15, 0.1, 0)
+	boss_label.scale = Vector2(0.3, 0.3)
+	boss_label.pivot_offset = boss_label.size / 2.0
+	boss_label.visible = true
+	var tw := create_tween()
+	# Slam in: scale up + fade in
+	tw.tween_property(boss_label, "scale", Vector2(1.2, 1.2), 0.25).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.parallel().tween_property(boss_label, "modulate", Color(1, 0.15, 0.1, 1), 0.2)
+	# Settle to normal scale
+	tw.tween_property(boss_label, "scale", Vector2(1.0, 1.0), 0.15)
+	# Hold
+	tw.tween_interval(2.0)
+	# Fade out
+	tw.tween_property(boss_label, "modulate", Color(1, 0.15, 0.1, 0), 0.6)
+	tw.tween_callback(func(): boss_label.visible = false)
+
+
+func show_boss_hp_bar(maximum: int) -> void:
+	boss_hp_bar.max_value = maximum
+	boss_hp_bar.value = maximum
+	boss_hp_bar.visible = true
+
+
+func update_boss_hp(current: int, maximum: int) -> void:
+	boss_hp_bar.max_value = maximum
+	boss_hp_bar.value = current
+	if current <= 0:
+		boss_hp_bar.visible = false
+
+
+func show_boss_defeated() -> void:
+	boss_label.text = "DEFEATED"
+	boss_label.modulate = Color(1, 0.85, 0.1, 0)
+	boss_label.scale = Vector2(1.0, 1.0)
+	boss_label.pivot_offset = boss_label.size / 2.0
+	boss_label.visible = true
+	var tw := create_tween()
+	# Fade in + slight scale punch
+	tw.tween_property(boss_label, "modulate", Color(1, 0.85, 0.1, 1), 0.3)
+	tw.parallel().tween_property(boss_label, "scale", Vector2(1.3, 1.3), 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.tween_property(boss_label, "scale", Vector2(1.0, 1.0), 0.15)
+	# Hold
+	tw.tween_interval(2.5)
+	# Fade out
+	tw.tween_property(boss_label, "modulate", Color(1, 0.85, 0.1, 0), 0.8)
+	tw.tween_callback(func(): boss_label.visible = false)
+
+
+# ── Powerup popup ─────────────────────────────────────────────────────
+
+func _create_powerup_popup() -> void:
+	_powerup_popup = Label.new()
+	_powerup_popup.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_powerup_popup.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_powerup_popup.anchors_preset = Control.PRESET_CENTER
+	_powerup_popup.anchor_left = 0.5
+	_powerup_popup.anchor_top = 0.5
+	_powerup_popup.anchor_right = 0.5
+	_powerup_popup.anchor_bottom = 0.5
+	_powerup_popup.offset_left = -160.0
+	_powerup_popup.offset_top = 20.0
+	_powerup_popup.offset_right = 160.0
+	_powerup_popup.offset_bottom = 55.0
+	_powerup_popup.add_theme_font_size_override("font_size", 20)
+	_powerup_popup.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	_powerup_popup.add_theme_constant_override("outline_size", 3)
+	_powerup_popup.visible = false
+	add_child(_powerup_popup)
+
+
+func show_powerup_effect(powerup_type: String) -> void:
+	var info: Dictionary = powerup_display.get(powerup_type,
+		{ "text": powerup_type.to_upper(), "color": Color.WHITE })
+	var col: Color = info["color"]
+
+	# Kill previous animation
+	if _powerup_tween and _powerup_tween.is_valid():
+		_powerup_tween.kill()
+
+	_powerup_popup.text = info["text"]
+	_powerup_popup.add_theme_color_override("font_color", col)
+	_powerup_popup.modulate = Color(col.r, col.g, col.b, 0)
+	_powerup_popup.scale = Vector2(0.4, 0.4)
+	_powerup_popup.pivot_offset = _powerup_popup.size / 2.0
+	_powerup_popup.visible = true
+
+	_powerup_tween = create_tween()
+	# Pop in: scale up + fade in
+	_powerup_tween.tween_property(_powerup_popup, "scale", Vector2(1.2, 1.2), 0.12).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_powerup_tween.parallel().tween_property(_powerup_popup, "modulate", Color(col.r, col.g, col.b, 1), 0.1)
+	# Settle
+	_powerup_tween.tween_property(_powerup_popup, "scale", Vector2(1.0, 1.0), 0.08)
+	# Hold
+	_powerup_tween.tween_interval(0.8)
+	# Float up + fade out
+	_powerup_tween.tween_property(_powerup_popup, "offset_top", _powerup_popup.offset_top - 15.0, 0.4)
+	_powerup_tween.parallel().tween_property(_powerup_popup, "modulate", Color(col.r, col.g, col.b, 0), 0.4)
+	# Reset and hide
+	_powerup_tween.tween_callback(func():
+		_powerup_popup.visible = false
+		_powerup_popup.offset_top = 20.0
+	)

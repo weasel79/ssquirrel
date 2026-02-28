@@ -5,8 +5,8 @@ extends Node
 # Alternating counters ensure consecutive sounds always differ.
 
 const SFX_POOL_SIZE := 8
-const MUSIC_VOLUME_DB := -8.0
-const SFX_VOLUME_DB := -4.0
+const MUSIC_VOLUME_DB := -8.0      # music 100% (original level)
+const SFX_VOLUME_DB := -16.0
 
 # Music tracks
 var _music_tracks: Array[AudioStream] = []
@@ -17,7 +17,7 @@ var _current_track_index := -1
 var _sfx_pool: Array[AudioStreamPlayer] = []
 var _sfx_index := 0
 
-# Preloaded sound effects — short, punchy sounds only
+# Preloaded sound effects
 var _sfx := {
 	"shoot_pistol":  preload("res://audio/sfx/shoot_pistol.wav"),
 	"shoot_rifle":   preload("res://audio/sfx/shoot_rifle.wav"),
@@ -26,6 +26,18 @@ var _sfx := {
 	"headshot":      preload("res://audio/sfx/headshot.wav"),
 	"ricochet1":     preload("res://audio/sfx/ricochet1.wav"),
 	"ricochet2":     preload("res://audio/sfx/ricochet2.wav"),
+	"boss_alarm":    preload("res://audio/sfx/boss_alarm.wav"),
+	"powerup":       preload("res://audio/sfx/powerup.wav"),
+	"coin":          preload("res://audio/sfx/coin.wav"),
+	"player_die":    preload("res://audio/sfx/player_die.wav"),
+	"game_over":     preload("res://audio/sfx/game_over.wav"),
+	"stage_clear":   preload("res://audio/sfx/stage_clear.wav"),
+	"fireball":      preload("res://audio/sfx/fireball.wav"),
+	"oneup":         preload("res://audio/sfx/oneup.wav"),
+	"warning":       preload("res://audio/sfx/warning.wav"),
+	"its_me":        preload("res://audio/sfx/its_me.wav"),
+	"countdown":     preload("res://audio/sfx/countdown.wav"),
+	"jump":          preload("res://audio/sfx/jump.wav"),
 }
 
 # Alternating counters — each category cycles through its list
@@ -48,7 +60,20 @@ func _ready() -> void:
 		preload("res://audio/music/fight_club_in_the_trees_2.mp3"),
 		preload("res://audio/music/neon_nut_rage.mp3"),
 		preload("res://audio/music/neon_nut_rage_2.mp3"),
+		preload("res://audio/music/Foxholes & Hickory Trees.mp3"),
+		preload("res://audio/music/Foxholes & Hickory 2.mp3"),
+		preload("res://audio/music/Disco in the Trees.mp3"),
+		preload("res://audio/music/Disco in the2.mp3"),
+		preload("res://audio/music/Fighting Squirrel National Anthem.mp3"),
+		preload("res://audio/music/Fighting Squirrel National Anthem(1).mp3"),
+		preload("res://audio/music/Pixel Palace in 8 Bits.mp3"),
+		preload("res://audio/music/Pixel Palace in 8 Bits(1).mp3"),
+		preload("res://audio/music/Pixel Party em 8 Bits.mp3"),
+		preload("res://audio/music/Pixel Party em 8 Bits(1).mp3"),
 	]
+
+	# Shuffle music order each run
+	_music_tracks.shuffle()
 
 	# Create music player
 	_music_player = AudioStreamPlayer.new()
@@ -66,29 +91,36 @@ func _ready() -> void:
 		_sfx_pool.append(player)
 
 
+func _process(_delta: float) -> void:
+	if Input.is_action_just_pressed("skip_track"):
+		skip_track()
+
+
 # ── Music ─────────────────────────────────────────────────────────────────
 
 func play_music() -> void:
-	_play_random_track()
+	_play_next_track()
 
 
 func stop_music() -> void:
 	_music_player.stop()
 
 
-func _play_random_track() -> void:
+func skip_track() -> void:
+	_music_player.stop()
+	_play_next_track()
+
+
+func _play_next_track() -> void:
 	if _music_tracks.is_empty():
 		return
-	var idx := randi() % _music_tracks.size()
-	while idx == _current_track_index and _music_tracks.size() > 1:
-		idx = randi() % _music_tracks.size()
-	_current_track_index = idx
-	_music_player.stream = _music_tracks[idx]
+	_current_track_index = (_current_track_index + 1) % _music_tracks.size()
+	_music_player.stream = _music_tracks[_current_track_index]
 	_music_player.play()
 
 
 func _on_music_finished() -> void:
-	_play_random_track()
+	_play_next_track()
 
 
 # ── SFX helpers ───────────────────────────────────────────────────────────
@@ -125,12 +157,12 @@ func _play_alternating(list: Array[String], counter_name: String,
 
 # ── Public gameplay SFX methods ───────────────────────────────────────────
 
-# Called when player shoots — cycles through all 4 gun sounds
+# Gunshots — 50% volume (-6 dB from previous -8 = -14 offset)
 func play_shoot(bullet_type: String = "normal") -> void:
-	_play_alternating(_shoot_all, "shoot", -8.0, 0.12)
+	_play_alternating(_shoot_all, "shoot", -14.0, 0.12)
 
 
-# Called when any enemy dies — short impact, no explosions
+# Called when any enemy dies — short impact
 func play_enemy_death() -> void:
 	_play_alternating(_enemy_death_sounds, "death", -4.0, 0.15)
 
@@ -140,6 +172,61 @@ func play_player_hit() -> void:
 	_play_alternating(_hit_sounds, "hit", -2.0, 0.12)
 
 
-# Called when player dies
+# Called when player dies — SMB death jingle (200%)
 func play_player_death() -> void:
-	_play_sfx("headshot", 0.0, 0.05)
+	_play_sfx("player_die", 6.0, 0.0)
+
+
+# Called when boss spawns — loud alarm siren
+func play_boss_alarm() -> void:
+	_play_sfx("boss_alarm", 16.0, 0.0)
+
+
+# Power-up collected — SMB powerup sound (200%)
+func play_powerup() -> void:
+	_play_sfx("powerup", 6.0, 0.0)
+
+
+# Coin/score bonus — SMB coin (200%)
+func play_coin() -> void:
+	_play_sfx("coin", 6.0, 0.0)
+
+
+# Game over — SMB game over jingle (200%)
+func play_game_over() -> void:
+	_play_sfx("game_over", 6.0, 0.0)
+
+
+# Boss defeated / stage clear — SMB stage clear (200%)
+func play_stage_clear() -> void:
+	_play_sfx("stage_clear", 6.0, 0.0)
+
+
+# Thunder scroll AoE — fireball sound (200%)
+func play_thunder() -> void:
+	_play_sfx("fireball", 8.0, 0.05)
+
+
+# 1-up / heal — SMB 1-up (200%)
+func play_oneup() -> void:
+	_play_sfx("oneup", 6.0, 0.0)
+
+
+# Boss fight — SMB running out of time warning (200%)
+func play_warning() -> void:
+	_play_sfx("warning", 10.0, 0.0)
+
+
+# Title screen — SM64 "It's-a me, Mario!" (200%)
+func play_its_me() -> void:
+	_play_sfx("its_me", 12.0, 0.0)
+
+
+# Game start — MK64 countdown (200%)
+func play_countdown() -> void:
+	_play_sfx("countdown", 10.0, 0.0)
+
+
+# Jump — SMB super jump (200%)
+func play_jump() -> void:
+	_play_sfx("jump", 6.0, 0.05)

@@ -1,9 +1,19 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scenes/main.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="Script" path="res://scenes/hud/hud.gd" id="3_hud_script"]
-[ext_resource type="Texture2D" path="res://art/tiles/ground_varied.png" id="4_ground"]
+[ext_resource type="PackedScene" path="res://scenes/world/world_generator.tscn" id="5_world"]
+[ext_resource type="Shader" path="res://scenes/hud/crt.gdshader" id="6_crt_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_crt"]
+shader = ExtResource("6_crt_shader")
+shader_parameter/scanline_strength = 0.12
+shader_parameter/blue_tint = 0.15
+shader_parameter/vignette_strength = 0.45
+shader_parameter/flicker_strength = 0.012
+shader_parameter/glow_boost = 1.1
+shader_parameter/resolution = Vector2(640, 360)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_stats"]
 bg_color = Color(0, 0, 0, 0.8)
@@ -15,15 +25,15 @@ content_margin_bottom = 10.0
 [node name="Main" type="Node2D"]
 script = ExtResource("1_script")
 
-[node name="Background" type="TextureRect" parent="."]
-offset_right = 640.0
-offset_bottom = 360.0
-texture = ExtResource("4_ground")
-stretch_mode = 1
-texture_filter = 1
+[node name="WorldGenerator" parent="." instance=ExtResource("5_world")]
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
 position = Vector2(320, 180)
+
+[node name="Camera2D" type="Camera2D" parent="Player"]
+zoom = Vector2(1, 1)
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
 
 [node name="SpawnTimer" type="Timer" parent="."]
 wait_time = 1.0
@@ -55,18 +65,24 @@ offset_top = 44.0
 offset_right = 200.0
 offset_bottom = 64.0
 
-[node name="ModsLabel" type="Label" parent="HUD"]
+[node name="ModsContainer" type="HBoxContainer" parent="HUD"]
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -300.0
-offset_top = -22.0
+offset_top = -48.0
 offset_right = 300.0
 offset_bottom = -4.0
+alignment = 1
+theme_override_constants/separation = 6
+
+[node name="ModsLabel" type="Label" parent="HUD/ModsContainer"]
+layout_mode = 2
 text = "PEA SHOOTER"
 horizontal_alignment = 1
+vertical_alignment = 1
 theme_override_font_sizes/font_size = 11
 theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
 
@@ -83,6 +99,20 @@ horizontal_alignment = 2
 theme_override_font_sizes/font_size = 10
 theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 0.6)
 
+[node name="BuffLabel" type="Label" parent="HUD"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -180.0
+offset_top = 24.0
+offset_right = -10.0
+offset_bottom = 38.0
+horizontal_alignment = 2
+theme_override_font_sizes/font_size = 10
+theme_override_colors/font_color = Color(1, 0.9, 0.4, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 2
+
 [node name="GameOverLabel" type="Label" parent="HUD"]
 anchors_preset = 8
 anchor_left = 0.5
@@ -98,6 +128,48 @@ horizontal_alignment = 1
 vertical_alignment = 1
 theme_override_font_sizes/font_size = 20
 theme_override_colors/font_color = Color(1, 0.3, 0.3, 1)
+
+[node name="BossHPBar" type="ProgressBar" parent="HUD"]
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 120.0
+offset_top = 8.0
+offset_right = -120.0
+offset_bottom = 22.0
+max_value = 1000.0
+value = 1000.0
+show_percentage = false
+theme_override_styles/fill = null
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+
+[node name="BossHPLabel" type="Label" parent="HUD/BossHPBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+text = "BOSS"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 9
+theme_override_colors/font_color = Color(1, 1, 1, 0.9)
+
+[node name="BossLabel" type="Label" parent="HUD"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -30.0
+offset_right = 200.0
+offset_bottom = 30.0
+text = "BOSS FIGHT"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 32
+theme_override_colors/font_color = Color(1, 0.15, 0.1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
 
 [node name="StatsPanel" type="Panel" parent="HUD"]
 anchors_preset = 8
@@ -124,3 +196,13 @@ bbcode_enabled = true
 text = "Hold TAB for stats"
 theme_override_font_sizes/normal_font_size = 10
 theme_override_colors/default_color = Color(0.9, 0.95, 1, 1)
+
+[node name="CRT" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="CRTOverlay" type="ColorRect" parent="CRT"]
+material = SubResource("ShaderMaterial_crt")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2

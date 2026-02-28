@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://hldfcc0edays"
+path="res://.godot/imported/Pixel Party em 8 Bits(1).mp3-aad694440da7971df0f9716c3e6036c9.mp3str"
+
+[deps]
+
+source_file="res://audio/music/Pixel Party em 8 Bits(1).mp3"
+dest_files=["res://.godot/imported/Pixel Party em 8 Bits(1).mp3-aad694440da7971df0f9716c3e6036c9.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
