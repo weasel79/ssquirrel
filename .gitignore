@@ -2,8 +2,18 @@
 .godot/
 /android/
 
-# Build exports (too large for GitHub)
+# Desktop builds — not committed
 *.exe
-*.pck
 *.zip
 PROMPT.TXT
+
+# Web export files — committed for GitHub Pages
+!SSQuirrel.html
+!SSQuirrel.pck
+!SSQuirrel.js
+!SSQuirrel.wasm
+!SSQuirrel.side.wasm
+!SSQuirrel.audio.worklet.js
+!SSQuirrel.audio.position.worklet.js
+!SSQuirrel.icon.png
+!SSQuirrel.apple-touch-icon.png
