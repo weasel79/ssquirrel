@@ -138,3 +138,37 @@
 ### To-do
 - [ ] Fix gifenc CDN global: inspect UMD bundle export, patch access (`gifenc` vs `window.gifenc`)
 - [ ] Alternatively try gif.js or a different GIF encoder
+
+---
+
+## Session — 2026-02-28 (cont.3) — terrain_mapgen.html major feature pass
+
+### Summary
+Extended terrain map generator (`build_mapgen.py` → `art/tiles/terrain/util/terrain_mapgen.html`) with many features. All non-PNG files moved to `util/` subfolder.
+
+### Features added
+- **Singles fader**: scatters random plant/item tiles from `terrain_atlas_singles.png` on interior cells; density 0–100 → 0–40% probability per eligible cell
+- **Main terrain** (radio button): selected terrain fills entire map as solid/alt background; no walls or corners ever used for it
+- **Transparency fix**: render pass 1 draws main terrain on ALL cells (not just mainTerrain cells) — transparent wall/corner areas of other terrains correctly show grass/background beneath
+- **Minimum 2-tile width erosion** (`erodeBlobs`): iteratively removes non-main cells that have 0 same-material backing in either H or V axis; map edges count as backing
+- **Random seed button**: "🎲 Random" next to Generate, picks 0–9999999 seed and generates immediately
+- **Size fader**: per-terrain sub-row; blob count via `numBlobs = round(totalTarget / blobSize)` where `blobSize = lerp(4, totalTarget, size/100)`
+- **Free sliders**: removed auto-sum; generation normalises non-main pcts internally (`normPct = m.pct / rawSum * 100`)
+- **renderSeed** (`seed ^ 0x3f7a2b1c`): stable re-render seed; density slider changes re-render consistently without regenerating layout
+
+### File changes
+- `build_mapgen.py`: output moved to `art/tiles/terrain/util/terrain_mapgen.html`
+- `art/tiles/terrain/util/`: new subfolder; contains `terrain_mapgen.html`, `terraintileset.md`, `README.md`
+- `art/tiles/terrain/util/README.md`: documents all scripts and the HTML tool
+
+### Key technical findings
+- Canvas transparency requires drawing background on *every* cell in pass 1, not just background-material cells
+- erodeBlobs axis check: `hBacking = (x===0 || left===mat) + (x===W-1 || right===mat)`; remove if hBacking===0 OR vBacking===0
+- `isInterior(x,y,g)`: all 4 cardinal neighbours same material — used by singles scatter to avoid walls/corners
+- Free sliders + normalize-on-generate is cleaner than auto-scaling for multi-terrain setups
+
+### To-do
+- [ ] Integrate terrain map generator output into Godot world_generator.gd
+- [ ] Resolve TILE_SIZE=16 vs 32px tile mismatch
+- [ ] Fix gifenc Export GIF in tileset_editor.html
+- [ ] Consider adding a "border padding" option (force N tiles of main terrain around map edge)
