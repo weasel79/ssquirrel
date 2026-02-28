@@ -10,11 +10,13 @@ const BASE_SPAWN_INTERVAL := 1.0
 const UPGRADE_DROP_CHANCE := 0.3
 
 var enemy_scenes := {
-	"squirrel": preload("res://scenes/enemies/squirrel.tscn"),
-	"rat":      preload("res://scenes/enemies/rat.tscn"),
-	"mole":     preload("res://scenes/enemies/mole.tscn"),
-	"raccoon":  preload("res://scenes/enemies/raccoon.tscn"),
+	"squirrel":   preload("res://scenes/enemies/squirrel.tscn"),
+	"rat":        preload("res://scenes/enemies/rat.tscn"),
+	"mole":       preload("res://scenes/enemies/mole.tscn"),
+	"raccoon":    preload("res://scenes/enemies/raccoon.tscn"),
+	"orc_shaman": preload("res://scenes/enemies/orc_shaman.tscn"),
 }
+var orc_shaman_baby_scene: PackedScene = preload("res://scenes/enemies/orc_shaman_baby.tscn")
 
 var pickup_scene: PackedScene = preload("res://scenes/pickup/pickup.tscn")
 var powerup_scene: PackedScene = preload("res://scenes/pickup/powerup.tscn")
@@ -50,10 +52,11 @@ var powerup_types := [
 
 # Spawn weights: [current_weight, seconds_until_unlocked]
 var enemy_weights := {
-	"squirrel": [10, 0.0],
-	"rat":      [0,  5.0],
-	"mole":     [0,  20.0],
-	"raccoon":  [0,  35.0],
+	"squirrel":   [10, 0.0],
+	"rat":        [0,  5.0],
+	"mole":       [0,  20.0],
+	"raccoon":    [0,  35.0],
+	"orc_shaman": [0,  50.0],
 }
 
 var upgrade_types := ["spread", "rapid", "pierce", "bigshot", "homing", "orbit", "rear"]
@@ -117,6 +120,8 @@ func _update_enemy_weights() -> void:
 					data[0] = mini(int((elapsed_time - min_time) * 0.2), 5)
 				"raccoon":
 					data[0] = mini(int((elapsed_time - min_time) * 0.15), 5)
+			"orc_shaman":
+				data[0] = mini(int((elapsed_time - min_time) * 0.10), 3)
 
 
 func _pick_enemy_type() -> String:
@@ -187,18 +192,26 @@ func _on_enemy_killed(value: int, enemy: Node2D, enemy_type: String) -> void:
 	Stats.record_kill(enemy_type.capitalize(), value)
 	SoundManager.play_enemy_death()
 
+	# Shaman spawns 3 babies at its death position
+	if enemy_type == "orc_shaman" and is_instance_valid(enemy):
+		for i in range(3):
+			var angle := (float(i) / 3.0) * TAU + randf() * 0.5
+			_spawn_shaman_baby(enemy.global_position + Vector2.from_angle(angle) * 20.0)
+
 	# Drop chance — tougher enemies drop more often
 	var drop_chance := UPGRADE_DROP_CHANCE
 	match enemy_type:
-		"mole":    drop_chance = 0.55
-		"raccoon": drop_chance = 0.45
-		"rat":     drop_chance = 0.20
+		"mole":       drop_chance = 0.55
+		"raccoon":    drop_chance = 0.45
+		"rat":        drop_chance = 0.20
+		"orc_shaman": drop_chance = 0.50
+		"orc_shaman_baby": drop_chance = 0.05
 
 	if randf() < drop_chance and is_instance_valid(enemy):
 		_spawn_pickup(enemy.global_position)
 
-	# 20% treasure drop independent of weapon upgrade
-	if randf() < 0.20 and is_instance_valid(enemy):
+	# 20% treasure drop (babies excluded)
+	if enemy_type != "orc_shaman_baby" and randf() < 0.20 and is_instance_valid(enemy):
 		_spawn_treasure(enemy.global_position)
 
 
@@ -215,6 +228,13 @@ func _spawn_treasure(pos: Vector2) -> void:
 	t.global_position = pos
 	t.collected.connect(_on_treasure_collected)
 	add_child(t)
+
+
+func _spawn_shaman_baby(pos: Vector2) -> void:
+	var baby: Node2D = orc_shaman_baby_scene.instantiate()
+	baby.global_position = pos
+	baby.killed.connect(_on_enemy_killed.bind(baby, "orc_shaman_baby"))
+	add_child(baby)
 
 
 func _on_treasure_collected() -> void:
