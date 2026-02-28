@@ -22,6 +22,7 @@ Stats="*res://autoload/stats.gd"
 SpriteHelper="*res://autoload/sprite_helper.gd"
 SoundManager="*res://autoload/sound_manager.gd"
 WFC="*res://autoload/wfc.gd"
+TouchInput="*res://autoload/touch_input.gd"
 
 [display]
 
