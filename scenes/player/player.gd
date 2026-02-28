@@ -2,7 +2,7 @@ extends CharacterBody2D
 # Player character — top-down movement with stacking weapon mods.
 # Each mod can be leveled 1→2→3 by collecting the same pickup again.
 # All active mods apply simultaneously when shooting.
-# Mario sprite sheet (20-col × 38-row, 16×16 tiles) with directional anims,
+# Mario sprite sheet (10-col × 19-row, 32×32 tiles) with directional anims,
 # hammer-beat melee, and cape mode.
 
 signal died
@@ -28,10 +28,10 @@ const JUMP_DURATION := 0.4
 const JUMP_HEIGHT := 20.0
 const JUMP_COOLDOWN := 0.0
 
-# Sprite sheet constants
-const SPRITE_SCALE := 4.0
-const SHEET_COLS  := 20
-const SHEET_TILE  := 16
+# Sprite sheet constants — 32×32 tiles, 10 columns per row
+const SPRITE_SCALE := 2.0
+const SHEET_COLS  := 10
+const SHEET_TILE  := 32
 
 # Melee trigger range (world px at scale 1 — compare to distance_to)
 const MELEE_RANGE := 32.0

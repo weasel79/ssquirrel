@@ -2,9 +2,9 @@ extends Control
 # Title screen — shows "SSquirrel" with animated Mario sprite for 2 seconds,
 # then transitions to the main game scene.
 
-const SHEET_COLS := 20
-const SHEET_TILE := 16
-const SPRITE_SCALE := 4.0
+const SHEET_COLS := 10
+const SHEET_TILE := 32
+const SPRITE_SCALE := 2.0
 
 var _sheet: Texture2D = preload("res://art/sprites/player/mario/mario_reconstructed_sheet.png")
 

@@ -120,8 +120,8 @@ func _update_enemy_weights() -> void:
 					data[0] = mini(int((elapsed_time - min_time) * 0.2), 5)
 				"raccoon":
 					data[0] = mini(int((elapsed_time - min_time) * 0.15), 5)
-			"orc_shaman":
-				data[0] = mini(int((elapsed_time - min_time) * 0.10), 3)
+				"orc_shaman":
+					data[0] = mini(int((elapsed_time - min_time) * 0.10), 3)
 
 
 func _pick_enemy_type() -> String:
