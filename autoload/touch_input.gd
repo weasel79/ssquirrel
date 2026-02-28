@@ -1,20 +1,23 @@
 extends Node
 # TouchInput — virtual joystick for mobile/touch browsers.
-# Injects move_left/right/up/down via Input.action_press/release.
-# Joystick appears wherever the left-half of the screen is first touched.
-# Invisible on desktop — no touch events = no UI shown.
+# Uses _process + Input.is_mouse_button_pressed (compatible with Godot's
+# default emulate_mouse_from_touch on iOS Safari/Chrome).
+# Joystick is fixed at bottom-left of the 640×360 viewport.
+# Invisible on desktop — hides when no touchscreen detected.
 
-const STICK_RADIUS  := 38.0   # max thumb travel from base center (viewport px)
-const DEAD_ZONE     := 10.0   # minimum offset to register a direction
-const BASE_DIAM     := 80.0
-const THUMB_DIAM    := 34.0
+const STICK_RADIUS := 36.0
+const DEAD_ZONE    := 10.0
+const BASE_DIAM    := 76.0
+const THUMB_DIAM   := 32.0
 
-var _touch_id  : int = -1
-var _stick_base: Vector2
+# Fixed center position in 640×360 viewport space
+const JOY_CENTER := Vector2(56.0, 308.0)
 
-var _canvas     : CanvasLayer = null
-var _base_panel : Panel       = null
+var _canvas:      CanvasLayer = null
+var _base_panel:  Panel       = null
 var _thumb_panel: Panel       = null
+
+var _active := false
 
 var _pressed := {
 	"move_left":  false,
@@ -31,14 +34,17 @@ func _ready() -> void:
 func _build_ui() -> void:
 	_canvas = CanvasLayer.new()
 	_canvas.layer = 50
+	_canvas.visible = DisplayServer.is_touchscreen_available()
 	add_child(_canvas)
 
 	_base_panel  = _make_circle_panel(BASE_DIAM,  Color(1, 1, 1, 0.14), Color(1, 1, 1, 0.35), 2)
 	_thumb_panel = _make_circle_panel(THUMB_DIAM, Color(1, 1, 1, 0.45), Color(0, 0, 0, 0),    0)
+
+	_base_panel.position  = JOY_CENTER - Vector2(BASE_DIAM,  BASE_DIAM)  * 0.5
+	_thumb_panel.position = JOY_CENTER - Vector2(THUMB_DIAM, THUMB_DIAM) * 0.5
+
 	_canvas.add_child(_base_panel)
 	_canvas.add_child(_thumb_panel)
-	_base_panel.visible  = false
-	_thumb_panel.visible = false
 
 
 func _make_circle_panel(diameter: float, bg: Color, border: Color, bw: int) -> Panel:
@@ -61,31 +67,35 @@ func _make_circle_panel(diameter: float, bg: Color, border: Color, bw: int) -> P
 	return p
 
 
+# Safety net: if is_touchscreen_available() missed the device, show on first touch
 func _input(event: InputEvent) -> void:
-	if event is InputEventScreenTouch:
-		if event.pressed and _touch_id == -1:
-			# Only activate for touches in the left 55% of the screen
-			if event.position.x < get_viewport().get_visible_rect().size.x * 0.55:
-				_touch_id   = event.index
-				_stick_base = event.position
-				_base_panel.position  = _stick_base - Vector2(BASE_DIAM,  BASE_DIAM)  * 0.5
-				_thumb_panel.position = _stick_base - Vector2(THUMB_DIAM, THUMB_DIAM) * 0.5
-				_base_panel.visible  = true
-				_thumb_panel.visible = true
-				get_viewport().set_input_as_handled()
-		elif not event.pressed and event.index == _touch_id:
-			_touch_id = -1
-			_base_panel.visible  = false
-			_thumb_panel.visible = false
-			_release_all()
-			get_viewport().set_input_as_handled()
+	if event is InputEventScreenTouch and not _canvas.visible:
+		_canvas.visible = true
 
-	elif event is InputEventScreenDrag and event.index == _touch_id:
-		var offset  := event.position - _stick_base
-		var clamped := offset.limit_length(STICK_RADIUS)
-		_thumb_panel.position = _stick_base + clamped - Vector2(THUMB_DIAM, THUMB_DIAM) * 0.5
-		_update_actions(offset)
-		get_viewport().set_input_as_handled()
+
+func _process(_delta: float) -> void:
+	if not _canvas.visible:
+		return
+
+	var btn_held := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var mpos     := get_viewport().get_mouse_position()
+	var vp_w     := get_viewport().get_visible_rect().size.x
+
+	if btn_held and not _active:
+		# Activate only for touches in left 55% of screen
+		if mpos.x < vp_w * 0.55:
+			_active = true
+
+	if _active:
+		if not btn_held:
+			_active = false
+			_thumb_panel.position = JOY_CENTER - Vector2(THUMB_DIAM, THUMB_DIAM) * 0.5
+			_release_all()
+		else:
+			var offset  := mpos - JOY_CENTER
+			var clamped := offset.limit_length(STICK_RADIUS)
+			_thumb_panel.position = JOY_CENTER + clamped - Vector2(THUMB_DIAM, THUMB_DIAM) * 0.5
+			_update_actions(offset)
 
 
 func _update_actions(offset: Vector2) -> void:
