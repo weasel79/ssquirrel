@@ -172,3 +172,38 @@ Extended terrain map generator (`build_mapgen.py` → `art/tiles/terrain/util/te
 - [ ] Resolve TILE_SIZE=16 vs 32px tile mismatch
 - [ ] Fix gifenc Export GIF in tileset_editor.html
 - [ ] Consider adding a "border padding" option (force N tiles of main terrain around map edge)
+
+---
+
+## Session — 2026-02-28 (cont.4) — Terrain file reorganisation
+
+### Summary
+Moved all terrain-related files out of project root into `art/tiles/terrain/` subdirectories.
+Updated all scripts to use `__file__`-relative paths. Updated README. Git committed + pushed.
+
+### File moves
+| File | Old | New |
+|---|---|---|
+| `terrain_atlas.gif` / `.png` / `_z.png` | project root | `art/tiles/terrain/` |
+| `terrain_preview.png` / `.import` | project root | `art/tiles/terrain/` |
+| `build_mapgen.py` | project root | `art/tiles/terrain/util/` |
+| `extract_terrain_tiles.py` | project root | `art/tiles/terrain/util/` |
+| `generate_terrain_preview.py` | project root | `art/tiles/terrain/util/` |
+| `terrain_atlas.txt` | project root | `art/tiles/terrain/util/` |
+
+### Path update pattern (all scripts now use)
+```python
+_HERE = os.path.dirname(os.path.abspath(__file__))
+# terrain/ (parent of util/):  os.path.join(_HERE, '..')
+# art/tiles/wfc/:               os.path.join(_HERE, '..', '..', 'wfc')
+```
+
+### Usage (updated)
+- Extract tiles: `python art/tiles/terrain/util/extract_terrain_tiles.py`
+- Generate preview: `python art/tiles/terrain/util/generate_terrain_preview.py`
+- Rebuild map generator: `python art/tiles/terrain/util/build_mapgen.py`
+
+### To-do
+- [ ] Integrate terrain map generator output into Godot world_generator.gd
+- [ ] Resolve TILE_SIZE=16 vs 32px tile mismatch
+- [ ] Fix gifenc Export GIF in tileset_editor.html

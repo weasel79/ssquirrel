@@ -93,3 +93,25 @@ Documentation of the terrain tileset PNG layout:
 - Tile slot names, positions, and meanings
 - Corrected inner corner selection rule (void diagonal → opposite tile name)
 - Atlas offset table
+
+---
+
+## tileset_editor.html *(project root)*
+
+Standalone GIF tileset editor — open directly in any browser (no server needed).
+Located at `ssquirel/tileset_editor.html`.
+
+**Features**
+- Load `terrain_atlas.gif` (or any GIF) and browse all frames as a grid
+- Drag to reorder tiles; Shift+drag to swap two tiles
+- Alt+drag rubber-band selection (add or remove mode based on first tile hit)
+- Right-click to delete a tile; Ctrl+click to duplicate
+- Ctrl+Z: undo (10 steps)
+- Zoom slider: scale grid 1×–4×
+- Save/Load: JSON with base64 PNGs (preserves arrangement without the source GIF)
+- Refresh: re-decode source GIF keeping current arrangement
+
+**Libraries (CDN)**
+- omggif@1.0.10 — GIF decode
+- SortableJS@1.15.2 — drag-and-drop
+- gifenc@1.0.3 — GIF encode
