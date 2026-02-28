@@ -1,0 +1,27 @@
+terrain_atlas.png — 1024×1024 px, 32×32 tile grid (32 tiles per row, 1024 tiles total)
+Tile size: 32×32 px
+Each terrain set: 3 columns × 6 rows = 18 tiles
+Offsets from start tile: 0,1,2, 32,33,34, 64,65,66, 96,97,98, 128,129,130, 160,161,162
+
+START TILE → NAME
+12    dark
+15    dirt_bright
+18    dirt_dark
+21    grass
+24    abyss
+27    hole_t
+204   abyss2
+207   lava
+210   gravel
+213   grass2
+216   tile
+288   sand
+485   dirt_on_grass
+291   sand_on_water
+294   water_on_grass
+297   water
+640   crop1
+643   crop2
+774   bush
+832   corn
+835   dirt3

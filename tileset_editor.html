@@ -81,6 +81,16 @@ button.warn:hover{background:#9a3030}
   cursor:pointer;font-size:13px;padding:0;line-height:1}
 #info-panel .close:hover{color:#ccc}
 
+/* ── tile selection checkbox ── */
+.ti .sel{position:absolute;top:2px;left:2px;width:13px;height:13px;
+  cursor:pointer;opacity:0.25;z-index:2;accent-color:#3a9ef5;margin:0}
+.ti .sel:checked,.ti:hover .sel{opacity:1}
+.ti:has(.sel:checked){border-color:#3a9ef5!important}
+
+/* ── rubber-band selection rect ── */
+#rbRect{position:fixed;border:1px solid #3a9ef5;background:rgba(58,158,245,0.08);
+  pointer-events:none;display:none;z-index:500}
+
 /* ── undo flash ── */
 @keyframes flash{0%{outline:2px solid #3a9ef5}100%{outline:2px solid transparent}}
 .undo-flash{animation:flash .3s ease-out}
@@ -99,7 +109,6 @@ button.warn:hover{background:#9a3030}
   <label title="Native tile size in pixels when slicing a PNG">
     tile px <input id="tilepx" type="number" value="32" min="1" max="512">
   </label>
-  <button id="savePngBtn" disabled onclick="doExportPNG()">Save PNG</button>
   <div class="sep"></div>
 
   <label title="Display size per tile (px)">
@@ -110,8 +119,8 @@ button.warn:hover{background:#9a3030}
   </label>
   <label title="Zoom the whole grid (1×–4×)">
     zoom
-    <input id="zoom" type="range" min="1" max="4" step="0.25" value="1">
-    <span id="zoomLbl" style="color:#666;min-width:24px">1×</span>
+    <input id="zoom" type="range" min="1" max="4" step="0.25" value="1.75">
+    <span id="zoomLbl" style="color:#666;min-width:24px">1.75×</span>
   </label>
   <div class="sep"></div>
 
@@ -132,6 +141,12 @@ button.warn:hover{background:#9a3030}
   <button id="undoBtn" disabled onclick="doUndo()" title="Ctrl+Z">↩ Undo</button>
   <div class="sep"></div>
 
+  <button onclick="doSelectAll()">☑ All</button>
+  <button onclick="doSelectNone()">☐ None</button>
+  <button class="warn" id="delSelBtn" disabled onclick="doDeleteSelected()">✕ Delete Selected</button>
+  <button id="saveSelPngBtn" disabled onclick="doSaveSelectionPNG()" title="Save selected tiles as 1D PNG strip">💾 Save Sel PNG</button>
+  <div class="sep"></div>
+
   <button id="saveBtn"    disabled onclick="doSave()"    title="Save arrangement to JSON file">💾 Save</button>
   <button id="loadBtn"             onclick="$('lfi').click()" title="Load arrangement from JSON file">📂 Load</button>
   <input id="lfi" type="file" accept=".json" style="display:none">
@@ -139,6 +154,7 @@ button.warn:hover{background:#9a3030}
   <div class="sep"></div>
 
   <button id="expBtn"    disabled onclick="doExport()">Export GIF</button>
+  <button id="savePngBtn" disabled onclick="doExportPNG()">Save PNG</button>
   <button onclick="toggleInfo()" title="Show keyboard shortcuts" style="background:#222;padding:3px 7px">ⓘ</button>
 
   <span id="status">Open a .gif (frames→tiles) or .png (sliced by tile px)</span>
@@ -154,6 +170,9 @@ button.warn:hover{background:#9a3030}
 <div id="scroll">
   <div id="grid"></div>
 </div>
+
+<!-- ── rubber-band rect ── -->
+<div id="rbRect"></div>
 
 <!-- ── info panel ── -->
 <div id="info-panel">
@@ -189,8 +208,15 @@ const UNDO_MAX  = 10;
 // drag-swap bookkeeping
 let dragState = null;        // {items: .ti[], oldIdx}
 let shiftHeld = false;       // tracked via keydown/keyup — reliable during drag
-document.addEventListener('keydown', e => { if (e.key === 'Shift') shiftHeld = true; });
-document.addEventListener('keyup',   e => { if (e.key === 'Shift') shiftHeld = false; });
+let altHeld   = false;       // when true, mousedown starts rubber-band selection
+document.addEventListener('keydown', e => {
+  if (e.key === 'Shift') shiftHeld = true;
+  if (e.key === 'Alt')   altHeld   = true;
+});
+document.addEventListener('keyup', e => {
+  if (e.key === 'Shift') shiftHeld = false;
+  if (e.key === 'Alt')   altHeld   = false;
+});
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 const $      = id => document.getElementById(id);
@@ -273,6 +299,12 @@ function makeTile(srcCanvas, frameIndex = -1) {
   ti._src = srcCanvas;   // native-res canvas used for export
   ti._fi  = frameIndex;  // original GIF frame index (-1 = from save/unknown)
 
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.className = 'sel';
+  cb.addEventListener('change', updateDelSelBtn);
+  ti.appendChild(cb);
+
   const c = document.createElement('canvas');
   c.width  = nativeW;
   c.height = nativeH;
@@ -309,9 +341,11 @@ function setupSortable() {
   if (sortInst) sortInst.destroy();
   sortInst = Sortable.create($('grid'), {
     animation: 110,
-    ghostClass:  'sortable-ghost',
-    chosenClass: 'sortable-chosen',
-    dragClass:   'sortable-drag',
+    ghostClass:      'sortable-ghost',
+    chosenClass:     'sortable-chosen',
+    dragClass:       'sortable-drag',
+    filter:          '.sel',
+    preventOnFilter: false,
 
     onStart(evt) {
       dragState = {
@@ -400,6 +434,8 @@ async function loadGIF(file, arrangement = null) {
     `${order.length} tiles · ${nativeW}×${nativeH} px · ${file.name}`;
   $('drop').style.display   = 'none';
   $('scroll').style.display = 'block';
+  updateDelSelBtn();
+  applyZoom();
 }
 
 // ─── load PNG (slice into tiles) ─────────────────────────────────────────────
@@ -455,11 +491,13 @@ function loadPNG(file) {
     $('saveBtn').disabled   = false;
     $('refBtn').disabled    = false;
     $('savePngBtn').disabled = false;
-    $('cols').value = cols <= 4 ? '4' : cols <= 8 ? '8' : cols <= 16 ? '16' : '32';
+    $('cols').value = cols;
     $('status').textContent =
       `${fi} tiles · ${tilePx}×${tilePx} px · ${cols} cols · ${file.name}`;
     $('drop').style.display   = 'none';
     $('scroll').style.display = 'block';
+    updateDelSelBtn();
+    applyZoom();
   };
   img.onerror = () => { URL.revokeObjectURL(url); alert('Cannot load PNG'); };
   img.src = url;
@@ -527,6 +565,8 @@ function doLoadJSON(file) {
         `${frames.length} tiles · ${nativeW}×${nativeH} px · (loaded from ${file.name})`;
       $('drop').style.display   = 'none';
       $('scroll').style.display = 'block';
+      updateDelSelBtn();
+      applyZoom();
     });
   };
   reader.readAsText(file);
@@ -595,6 +635,107 @@ function doExportPNG() {
   a.href = out.toDataURL('image/png');
   a.download = (lastFile ? lastFile.name.replace(/\.(gif|png)$/i, '') : 'tileset') + '_export.png';
   a.click();
+}
+
+// ─── selection helpers ────────────────────────────────────────────────────────
+function updateDelSelBtn() {
+  const any = !!document.querySelector('.ti .sel:checked');
+  $('delSelBtn').disabled     = !any;
+  $('saveSelPngBtn').disabled = !any;
+}
+
+function doSelectAll() {
+  document.querySelectorAll('.ti .sel').forEach(cb => cb.checked = true);
+  updateDelSelBtn();
+}
+
+function doSelectNone() {
+  document.querySelectorAll('.ti .sel').forEach(cb => cb.checked = false);
+  updateDelSelBtn();
+}
+
+function doDeleteSelected() {
+  const selected = [...document.querySelectorAll('.ti')].filter(ti => ti.querySelector('.sel').checked);
+  if (!selected.length) return;
+  pushUndo();
+  selected.forEach(ti => ti.remove());
+  reindex();
+  updateDelSelBtn();
+}
+
+// ─── save selection as 1-D PNG strip ─────────────────────────────────────────
+function doSaveSelectionPNG() {
+  const selected = [...document.querySelectorAll('.ti')].filter(ti => ti.querySelector('.sel').checked);
+  if (!selected.length) return;
+
+  const out = document.createElement('canvas');
+  out.width  = selected.length * nativeW;
+  out.height = nativeH;
+  const ctx  = out.getContext('2d');
+
+  selected.forEach((ti, i) => ctx.drawImage(ti._src, i * nativeW, 0));
+
+  const a = document.createElement('a');
+  a.href = out.toDataURL('image/png');
+  a.download = (lastFile ? lastFile.name.replace(/\.(gif|png)$/i, '') : 'tileset') + '_selection.png';
+  a.click();
+}
+
+// ─── rubber-band (alt+drag) selection ────────────────────────────────────────
+{
+  const rb  = $('rbRect');
+  let rbStart = null;   // { x, y } viewport coords at drag start
+  let rbMode  = 'add';  // 'add' or 'remove' — determined by first tile under cursor
+
+  // Capture mousedown before SortableJS sees it when alt is held
+  document.addEventListener('mousedown', e => {
+    if (!altHeld) return;
+    const scroll = $('scroll');
+    if (!scroll || (!scroll.contains(e.target) && e.target !== scroll)) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Decide mode from the tile under the cursor (if any)
+    const firstTile = e.target.closest?.('.ti');
+    rbMode = (firstTile && firstTile.querySelector('.sel').checked) ? 'remove' : 'add';
+
+    rbStart = { x: e.clientX, y: e.clientY };
+    rb.style.left = e.clientX + 'px';
+    rb.style.top  = e.clientY + 'px';
+    rb.style.width = rb.style.height = '0';
+    rb.style.display = 'block';
+  }, true);  // capture phase — fires before SortableJS bubble listener
+
+  document.addEventListener('mousemove', e => {
+    if (!rbStart) return;
+    const x = Math.min(e.clientX, rbStart.x);
+    const y = Math.min(e.clientY, rbStart.y);
+    rb.style.left   = x + 'px';
+    rb.style.top    = y + 'px';
+    rb.style.width  = Math.abs(e.clientX - rbStart.x) + 'px';
+    rb.style.height = Math.abs(e.clientY - rbStart.y) + 'px';
+  });
+
+  document.addEventListener('mouseup', e => {
+    if (!rbStart) return;
+    const r = {
+      left:   Math.min(e.clientX, rbStart.x),
+      top:    Math.min(e.clientY, rbStart.y),
+      right:  Math.max(e.clientX, rbStart.x),
+      bottom: Math.max(e.clientY, rbStart.y),
+    };
+    rb.style.display = 'none';
+    rbStart = null;
+
+    // Add or remove selection for all tiles overlapping the rectangle
+    const selecting = rbMode === 'add';
+    document.querySelectorAll('.ti').forEach(ti => {
+      const tr = ti.getBoundingClientRect();
+      if (tr.left < r.right && tr.right > r.left && tr.top < r.bottom && tr.bottom > r.top)
+        ti.querySelector('.sel').checked = selecting;
+    });
+    updateDelSelBtn();
+  });
 }
 
 // ─── info panel ──────────────────────────────────────────────────────────────

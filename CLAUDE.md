@@ -86,6 +86,42 @@
 
 ---
 
+## Session — 2026-02-28 (cont.2) — Terrain atlas corrections + rubber-band deselect
+
+### Summary
+- Corrected two terrain set start tiles after visual verification of extracted PNGs
+- Enhanced rubber-band selection in tileset_editor.html to support both add and remove modes
+
+### Tile corrections
+| Set | Old start | New start |
+|---|---|---|
+| dirt_on_grass | 285 | 485 |
+| sand | 283 | 288 |
+- Updated terrain_atlas.txt for both entries
+- Re-ran Pillow extraction for each: art/tiles/terrain/{dirt_on_grass,sand}.png
+
+### tileset_editor.html — rubber-band mode toggle
+- Alt+drag now decides add vs. remove based on the first tile under the cursor at mousedown
+- If first tile is **selected** → rectangle **deselects** all overlapping tiles (`rbMode = 'remove'`)
+- If first tile is **unselected** (or no tile) → rectangle **selects** all overlapping tiles (`rbMode = 'add'`)
+- Uses `e.target.closest('.ti')` to detect first tile; `rbMode` variable set in capture-phase mousedown
+
+### Issues
+- New materials (sand/earth/water/stone) not yet integrated into world_generator.gd _pick_tile()
+- TILE_SIZE=16 vs 32px tile mismatch unresolved
+- gifenc Export GIF: `window.gifenc` undefined (unresolved)
+
+### To-do
+- [ ] Integrate sand/earth/water/stone into world_generator.gd _pick_tile()
+- [ ] Decide: resize tiles to 16px or change TILE_SIZE to 32
+- [ ] Fix gifenc CDN global (inspect UMD export name)
+
+### Ideas
+- Add "verify" button to tileset_editor.html: render a preview of selected tiles side-by-side
+- Alt+click single tile: instant add/remove toggle without dragging
+
+---
+
 ## Session — 2026-02-28 (cont.) — gifenc CDN bug discovered
 
 ### Summary
