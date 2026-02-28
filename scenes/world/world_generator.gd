@@ -66,7 +66,14 @@ var _debug_canvas: CanvasLayer = null
 
 
 func _ready() -> void:
+	# PROCESS_MODE_ALWAYS so G-key randomize works even while the tree is paused.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_setup_noise()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_just_pressed("randomize_terrain"):
+		randomize_terrain()
 
 
 func init_world(player: Node2D) -> void:
@@ -99,6 +106,27 @@ func _process(_delta: float) -> void:
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
+
+# Show or hide the terrain legend panel (called by HUD on Tab press/release).
+func set_terrain_legend_visible(v: bool) -> void:
+	if _debug_canvas != null:
+		_debug_canvas.visible = v
+
+
+# Re-roll terrain types and rebuild all loaded chunks.
+# Can be called at any time (e.g. G key during play or from Tab overlay).
+func randomize_terrain() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	_setup_terrains(rng)
+	_create_terrain_debug_display()   # rebuilds legend with new terrain names
+	# Free every loaded chunk — the normal update loop rebuilds them next frame.
+	for ck: Vector2i in _chunks:
+		(_chunks[ck] as Node2D).queue_free()
+	_chunks.clear()
+	_chunk_types.clear()
+	_pending_chunks.clear()
+
 
 func get_tile_type(world_pos: Vector2) -> int:
 	var wx: int = floori(world_pos.x / TILE_SIZE)
@@ -573,9 +601,12 @@ func _create_terrain_debug_display() -> void:
 		# Terrain name label (role marker for main and wall terrains).
 		var lbl := Label.new()
 		var suffix := ""
-		if tname == _main_terrain:  suffix = " *"
+		if tname == _main_terrain:   suffix = " *"
 		elif tname == _wall_terrain: suffix = " (wall)"
 		lbl.text = tname + suffix
 		lbl.position = Vector2(ix + 36.0, iy + 8.0)
 		lbl.add_theme_font_size_override("font_size", 11)
 		_debug_canvas.add_child(lbl)
+
+	# Hidden by default — shown only while Tab (stats overlay) is open.
+	_debug_canvas.visible = false

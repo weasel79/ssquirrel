@@ -94,7 +94,7 @@ offset_left = -100.0
 offset_top = 8.0
 offset_right = -10.0
 offset_bottom = 22.0
-text = "TAB = Stats"
+text = "TAB = Pause / Stats"
 horizontal_alignment = 2
 theme_override_font_sizes/font_size = 10
 theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 0.6)

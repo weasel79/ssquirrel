@@ -39,6 +39,10 @@ var mod_display := {
 
 var _active_buffs := {}  # { "speed": remaining_seconds, ... }
 
+# WorldGenerator reference — fetched in _ready for terrain legend toggling.
+var _world_gen: Node2D = null
+var _tab_open := false
+
 # Gold display — icon advances through 10 treasure images as thresholds are passed
 const GOLD_THRESHOLDS: Array[int] = [4, 10, 40, 100, 400, 1000, 4000, 10000, 40000]
 var _gold_textures: Array[Texture2D] = [
@@ -72,6 +76,8 @@ var powerup_display := {
 }
 
 func _ready() -> void:
+	# Keep processing even when the tree is paused (Tab overlay / pause menu).
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	game_over_label.visible = false
 	stats_panel.visible = false
 	boss_label.visible = false
@@ -80,19 +86,24 @@ func _ready() -> void:
 	update_score(0)
 	_create_gold_display()
 	_create_powerup_popup()
+	_world_gen = get_parent().get_node_or_null("WorldGenerator")
 
 
 func _process(delta: float) -> void:
-	# Update live DPS display
+	# Update live DPS display (runs even while paused)
 	dps_label.text = "DPS: %.1f" % Stats.get_dps()
 
-	# TAB toggle for stats overlay
-	stats_panel.visible = Input.is_action_pressed("show_stats")
-	if stats_panel.visible:
+	# Tab: open/close overlay — pauses the game tree while held
+	var tab_now := Input.is_action_pressed("show_stats")
+	if tab_now != _tab_open:
+		_tab_open = tab_now
+		_set_tab_overlay(tab_now)
+	if _tab_open:
 		_refresh_stats_panel()
 
-	# Update buff timers display
-	_update_buff_display(delta)
+	# Buff timers only tick when the game is running
+	if not get_tree().paused:
+		_update_buff_display(delta)
 
 
 func _get_gold_icon_index(gold_count: int) -> int:
@@ -222,6 +233,13 @@ func show_game_over(final_score: int = 0, kills: int = 0) -> void:
 
 # ── TAB stats overlay ────────────────────────────────────────────────────
 
+func _set_tab_overlay(open: bool) -> void:
+	stats_panel.visible = open
+	get_tree().paused = open
+	if _world_gen and _world_gen.has_method("set_terrain_legend_visible"):
+		_world_gen.set_terrain_legend_visible(open)
+
+
 func _refresh_stats_panel() -> void:
 	var s := Stats
 	var lines: Array[String] = []
@@ -258,6 +276,15 @@ func _refresh_stats_panel() -> void:
 	var log_start := maxi(s.event_log.size() - 8, 0)
 	for i in range(log_start, s.event_log.size()):
 		lines.append(s.event_log[i])
+
+	lines.append("")
+	lines.append("[b]— Keys —[/b]")
+	lines.append("WASD / Arrows  Move")
+	lines.append("SPACE          Dodge")
+	lines.append("TAB            Stats (pause)")
+	lines.append("G              New terrain")
+	lines.append("T              Skip music")
+	lines.append("R              Restart (game over)")
 
 	stats_text.text = "\n".join(lines)
 
